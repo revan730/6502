@@ -1,17 +1,19 @@
 use std::fmt;
 
 use crate::{
-    instruction::Instruction, memory_bus::MEM_SPACE_END, opcode_decoders::OPCODE_DECODERS,
+    instruction::Instruction,
+    memory_bus::{MemoryBus, MEM_SPACE_END},
+    opcode_decoders::OPCODE_DECODERS,
 };
 
 pub struct Cpu {
-    pub address_space: [u8; MEM_SPACE_END], // TODO: replace with memory bus implementation
-    pub a: u8,                              // Accumulator register
-    pub x: u8,                              // X index register
-    pub y: u8,                              // Y index register
-    pub pc: u16,                            // Program counter
-    pub s: u8,                              // Stack pointer
-    pub p: u8,                              // Flags register
+    pub address_space: MemoryBus, // TODO: replace with memory bus implementation
+    pub a: u8,                    // Accumulator register
+    pub x: u8,                    // X index register
+    pub y: u8,                    // Y index register
+    pub pc: u16,                  // Program counter
+    pub s: u8,                    // Stack pointer
+    pub p: u8,                    // Flags register
 }
 
 impl fmt::Debug for Cpu {
@@ -33,26 +35,19 @@ struct DecodedInstruction {
 }
 
 impl Cpu {
-    pub fn new() -> Cpu {
+    pub fn new(mem_bus: MemoryBus) -> Cpu {
         Cpu {
-            address_space: [0; MEM_SPACE_END], // TODO: Init memory bus here
-            a: 0,
+            address_space: mem_bus, // TODO: Init memory bus here
+            a: 1,
             x: 0,
             y: 0,
-            pc: 0, // TODO: Probably should point to reset vector
+            pc: 0x200, // TODO: Probably should point to reset vector
             s: 0,
             p: 0,
         }
     }
 
     pub fn step(&mut self) {
-        self.address_space[0] = 0xEA;
-        self.address_space[1] = 0x69;
-        self.address_space[2] = 0xCA;
-        self.address_space[3] = 0x4C;
-        self.address_space[4] = 0x00;
-        self.address_space[5] = 0x00;
-
         let opcode = self.fetch(self.pc);
         let instruction = self.decode(opcode);
 
@@ -62,7 +57,7 @@ impl Cpu {
     fn fetch(&self, address: u16) -> u8 {
         const SPACE_END: u16 = MEM_SPACE_END as u16;
         match address {
-            0..=SPACE_END => self.address_space[address as usize],
+            0..=SPACE_END => self.address_space.read_byte(address as usize),
             _ => panic!("PC address out of bounds"),
         }
     }
@@ -104,12 +99,38 @@ impl Cpu {
                     .args
                     .get(0)
                     .expect("execute JMP nn error: expected immediate byte");
-                let result = u16::from(self.a) + u16::from(*arg0);
+                let carry = self.p & 0x1;
+                let result = u16::from(self.a) + u16::from(*arg0) + u16::from(carry);
 
+                // carry flag
                 if result > 255 {
                     self.p |= 1;
                 } else {
                     self.p &= !1;
+                }
+
+                // zero flag
+                if result == 0 {
+                    self.p |= 1 << 1;
+                } else {
+                    self.p &= !(1 << 1);
+                }
+
+                let overflow: bool = i8::checked_add(self.a as i8, *arg0 as i8)
+                    .and_then(|x| i8::checked_add(x, carry as i8))
+                    .map_or(true, |_| false);
+
+                if overflow {
+                    self.p |= 1 << 6;
+                } else {
+                    self.p &= !(1 << 6);
+                }
+
+                // negative flag
+                if (result & 0b10000000) >> 7 == 1 {
+                    self.p |= 1 << 7;
+                } else {
+                    self.p &= !(1 << 7);
                 }
 
                 self.a = result as u8;
