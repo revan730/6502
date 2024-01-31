@@ -94,48 +94,40 @@ impl Cpu {
 
     fn execute(&mut self, instr: DecodedInstruction) {
         match instr.int {
+            Instruction::AdcZeroPage => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC n error: expected zero page addr byte");
+
+                let arg0 = self.fetch(*arg0 as u16);
+
+                self.adc(arg0);
+                self.pc += 2;
+            }
             Instruction::AdcImmediate => {
                 let arg0 = instr
                     .args
                     .get(0)
-                    .expect("execute JMP nn error: expected immediate byte");
-                let carry = self.p & 0x1;
-                let result = u16::from(self.a) + u16::from(*arg0) + u16::from(carry);
+                    .expect("execute ADC #n error: expected immediate byte");
 
-                // carry flag
-                if result > 255 {
-                    self.p |= 1;
-                } else {
-                    self.p &= !1;
-                }
-
-                // zero flag
-                if result == 0 {
-                    self.p |= 1 << 1;
-                } else {
-                    self.p &= !(1 << 1);
-                }
-
-                let overflow: bool = i8::checked_add(self.a as i8, *arg0 as i8)
-                    .and_then(|x| i8::checked_add(x, carry as i8))
-                    .map_or(true, |_| false);
-
-                if overflow {
-                    self.p |= 1 << 6;
-                } else {
-                    self.p &= !(1 << 6);
-                }
-
-                // negative flag
-                if (result & 0b10000000) >> 7 == 1 {
-                    self.p |= 1 << 7;
-                } else {
-                    self.p &= !(1 << 7);
-                }
-
-                self.a = result as u8;
-
+                self.adc(*arg0);
                 self.pc += 2;
+            }
+            Instruction::AdcAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC nn error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute ADC nn error: expected address high byte");
+
+                let arg0 = self.fetch(u16::from(*high_byte) << 8 | u16::from(*low_byte));
+                self.adc(arg0);
+                self.pc += 3;
             }
             Instruction::NOP => {
                 self.pc += 1;
@@ -157,5 +149,43 @@ impl Cpu {
             }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
+    }
+
+    fn adc(&mut self, operand: u8) {
+        let carry = self.p & 0x1;
+        let result = u16::from(self.a) + u16::from(operand) + u16::from(carry);
+
+        // carry flag
+        if result > 255 {
+            self.p |= 1;
+        } else {
+            self.p &= !1;
+        }
+
+        // zero flag
+        if result == 0 {
+            self.p |= 1 << 1;
+        } else {
+            self.p &= !(1 << 1);
+        }
+
+        let overflow: bool = i8::checked_add(self.a as i8, operand as i8)
+            .and_then(|x| i8::checked_add(x, carry as i8))
+            .map_or(true, |_| false);
+
+        if overflow {
+            self.p |= 1 << 6;
+        } else {
+            self.p &= !(1 << 6);
+        }
+
+        // negative flag
+        if (result & 0b10000000) >> 7 == 1 {
+            self.p |= 1 << 7;
+        } else {
+            self.p &= !(1 << 7);
+        }
+
+        self.a = result as u8;
     }
 }

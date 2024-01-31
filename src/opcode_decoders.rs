@@ -19,7 +19,6 @@ pub struct ArgumentDecoder {
 pub struct OpcodeDecoder<'a> {
     pub name: &'a str,
     pub instruction: Instruction,
-    pub opcode: u16,
     pub argument_decoders: Vec<ArgumentDecoder>,
 }
 
@@ -27,14 +26,37 @@ lazy_static! {
     pub static ref OPCODE_DECODERS: HashMap<Instruction, OpcodeDecoder<'static>> = {
         let mut m = HashMap::new();
         m.insert(
+            Instruction::AdcZeroPage,
+            OpcodeDecoder {
+                name: "ADC n",
+                instruction: Instruction::AdcZeroPage,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
             Instruction::AdcImmediate,
             OpcodeDecoder {
                 name: "ADC #n",
                 instruction: Instruction::AdcImmediate,
-                opcode: 0x69,
                 argument_decoders: vec![ArgumentDecoder {
                     index: 0,
                     kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcAbsolute,
+            OpcodeDecoder {
+                name: "ADC nn",
+                instruction: Instruction::AdcAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
                 }],
             },
         );
@@ -44,7 +66,6 @@ lazy_static! {
             OpcodeDecoder {
                 name: "JMP nn",
                 instruction: Instruction::JMP,
-                opcode: 0x4C,
                 argument_decoders: vec![ArgumentDecoder {
                     index: 0,
                     kind: ArgumentType::Addr,
@@ -57,7 +78,6 @@ lazy_static! {
             OpcodeDecoder {
                 name: "NOP",
                 instruction: Instruction::NOP,
-                opcode: 0xEA,
                 argument_decoders: vec![],
             },
         );

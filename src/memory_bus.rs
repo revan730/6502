@@ -50,12 +50,17 @@ impl MemoryBus {
         let (_, copy_start) = self.ram_io_rom.split_at_mut(offset);
         copy_start[..data.len()].copy_from_slice(data);
 
+        // TODO: Next line is a hack used to break test programs after jump
+        // to this address as the opcode loaded there is unknown at this moment
+
+        self.zero_page[0x1] = 0x40; // RTI
         Ok(())
     }
 
     pub fn read_byte(&self, address: usize) -> u8 {
         println!("Read from addr {:#X}", address);
         match address {
+            ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address],
             RAM_IO_ROM_START..=RAM_IO_ROM_END => self.ram_io_rom[address - RAM_IO_ROM_START],
             _ => todo!(),
         }

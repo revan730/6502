@@ -28,10 +28,11 @@ fn main() {
     memory.load_rom(0x0, &rom_data).unwrap();
     println!("{:?}", memory);
     let mut cpu = Cpu::new(memory);
-    cpu.step();
-    println!("Cpu state: {:?}", cpu);
-    cpu.step();
-    println!("Cpu state: {:?}", cpu);
+
+    loop {
+        cpu.step();
+        println!("Cpu state: {:?}", cpu);
+    }
 }
 
 fn load_file(path: &str) -> io::Result<Vec<u8>> {
