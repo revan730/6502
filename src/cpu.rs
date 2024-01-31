@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::{
     instruction::Instruction,
-    memory_bus::{MemoryBus, MEM_SPACE_END},
+    memory_bus::{MemoryBus, MEM_SPACE_END, ZERO_PAGE_END, ZERO_PAGE_SIZE},
     opcode_decoders::OPCODE_DECODERS,
 };
 
@@ -34,6 +34,10 @@ struct DecodedInstruction {
     pub args: Vec<u8>,
 }
 
+fn dword_from_nibbles(low_byte: u8, high_byte: u8) -> u16 {
+    u16::from(high_byte) << 8 | u16::from(low_byte)
+}
+
 impl Cpu {
     pub fn new(mem_bus: MemoryBus) -> Cpu {
         Cpu {
@@ -60,6 +64,13 @@ impl Cpu {
             0..=SPACE_END => self.address_space.read_byte(address as usize),
             _ => panic!("PC address out of bounds"),
         }
+    }
+
+    fn fetch_dword(&self, address: u16) -> u16 {
+        let low_byte = self.fetch(address);
+        let high_byte = self.fetch(address + 1);
+
+        dword_from_nibbles(low_byte, high_byte)
     }
 
     fn decode(&self, value: u8) -> DecodedInstruction {
@@ -94,6 +105,21 @@ impl Cpu {
 
     fn execute(&mut self, instr: DecodedInstruction) {
         match instr.int {
+            Instruction::AdcXIndexedZeroIndirect => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC (n,X) error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
+
+                let address = self.fetch_dword(x_indexed_ptr);
+
+                let operand = self.fetch(address);
+
+                self.adc(operand);
+                self.pc += 2;
+            }
             Instruction::AdcZeroPage => {
                 let arg0 = instr
                     .args
@@ -125,8 +151,72 @@ impl Cpu {
                     .get(1)
                     .expect("execute ADC nn error: expected address high byte");
 
-                let arg0 = self.fetch(u16::from(*high_byte) << 8 | u16::from(*low_byte));
+                let arg0 = self.fetch(dword_from_nibbles(*low_byte, *high_byte));
                 self.adc(arg0);
+                self.pc += 3;
+            }
+            Instruction::AdcZeroIndirectIndexed => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC (n),Y error: expected byte");
+
+                let low_byte = self.fetch(*arg0 as u16);
+                let high_byte = self.fetch(*arg0 as u16 + 1);
+                let address = dword_from_nibbles(low_byte, high_byte);
+
+                let operand = self.fetch(self.y as u16 + address);
+
+                self.adc(operand);
+                self.pc += 2;
+            }
+            Instruction::AdcXIndexedZero => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC n,X error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
+
+                let operand = self.fetch(x_indexed_ptr);
+
+                self.adc(operand);
+                self.pc += 2;
+            }
+            Instruction::AdcYIndexedAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC nn,Y error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute ADC nn,Y error: expected address high byte");
+
+                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.y as u16;
+
+                let operand = self.fetch(address);
+
+                self.adc(operand);
+                self.pc += 3;
+            }
+            Instruction::AdcXIndexedAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute ADC nn,X error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute ADC nn,X error: expected address high byte");
+
+                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.x as u16;
+
+                let operand = self.fetch(address);
+
+                self.adc(operand);
                 self.pc += 3;
             }
             Instruction::NOP => {
@@ -142,7 +232,7 @@ impl Cpu {
                     .get(1)
                     .expect("execute JMP nn error: expected address high byte");
 
-                let addr = u16::from(*high_byte) << 8 | u16::from(*low_byte);
+                let addr = dword_from_nibbles(*low_byte, *high_byte);
                 println!("jump addr {:#X}", addr);
 
                 self.pc = addr;

@@ -26,6 +26,18 @@ lazy_static! {
     pub static ref OPCODE_DECODERS: HashMap<Instruction, OpcodeDecoder<'static>> = {
         let mut m = HashMap::new();
         m.insert(
+            Instruction::AdcXIndexedZeroIndirect,
+            OpcodeDecoder {
+                name: "ADC (n,X)",
+                instruction: Instruction::AdcZeroPage,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
             Instruction::AdcZeroPage,
             OpcodeDecoder {
                 name: "ADC n",
@@ -45,6 +57,54 @@ lazy_static! {
                 argument_decoders: vec![ArgumentDecoder {
                     index: 0,
                     kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcZeroIndirectIndexed,
+            OpcodeDecoder {
+                name: "ADC (n),Y",
+                instruction: Instruction::AdcZeroIndirectIndexed,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcXIndexedZero,
+            OpcodeDecoder {
+                name: "ADC n,X",
+                instruction: Instruction::AdcXIndexedZero,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcYIndexedAbsolute,
+            OpcodeDecoder {
+                name: "ADC nn,Y",
+                instruction: Instruction::AdcYIndexedAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcXIndexedAbsolute,
+            OpcodeDecoder {
+                name: "ADC nn,X",
+                instruction: Instruction::AdcXIndexedAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
                 }],
             },
         );
