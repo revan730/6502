@@ -1,17 +1,17 @@
 #[derive(thiserror::Error, Debug)]
 pub enum DecodeError {
     #[error("Unknown opcode: {0}")]
-    UnknownOpcodeError(String),
+    UnknownOpcode(String),
     #[error("Expected byte argument, found #OTHERTYPE#")] // TODO: Fill #OTHERTYPE#
-    ByteExpectedArgumentError,
+    ByteExpectedArgument,
     #[error("Expected address argument, found #OTHERTYPE#")] // TODO: Fill #OTHERTYPE#
-    AddrExpectedArgumentError,
+    AddrExpectedArgument,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum MemoryBusError {
     #[error("ROM Data size out of region bounds")]
-    ROMLoadOutOfBoundsError,
+    ROMLoadOutOfBounds,
     #[error("Offset out of region bounds: {0:#X}")]
-    OffsetOutOfBoundsError(usize),
+    OffsetOutOfBounds(usize),
 }

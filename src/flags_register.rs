@@ -1,10 +1,10 @@
 pub struct FlagsRegister(u8);
 
 pub enum FlagPosition {
-    NEGATIVE = 7,
-    OVERFLOW = 6,
-    ZERO = 1,
-    CARRY = 0,
+    Negative = 7,
+    Overflow = 6,
+    Zero = 1,
+    Carry = 0,
 }
 
 impl Into<u8> for FlagPosition {
@@ -16,6 +16,12 @@ impl Into<u8> for FlagPosition {
 impl Into<u8> for &FlagsRegister {
     fn into(self) -> u8 {
         self.0
+    }
+}
+
+impl Default for FlagsRegister {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -45,24 +51,24 @@ mod tests {
     fn write_flag() {
         let mut flags = FlagsRegister(0);
 
-        flags.write_flag(FlagPosition::NEGATIVE, true);
+        flags.write_flag(FlagPosition::Negative, true);
         assert_eq!(flags.0, 0b10000000);
-        flags.write_flag(FlagPosition::NEGATIVE, false);
+        flags.write_flag(FlagPosition::Negative, false);
         assert_eq!(flags.0, 0);
 
-        flags.write_flag(FlagPosition::OVERFLOW, true);
+        flags.write_flag(FlagPosition::Overflow, true);
         assert_eq!(flags.0, 0b01000000);
-        flags.write_flag(FlagPosition::OVERFLOW, false);
+        flags.write_flag(FlagPosition::Overflow, false);
         assert_eq!(flags.0, 0);
 
-        flags.write_flag(FlagPosition::ZERO, true);
+        flags.write_flag(FlagPosition::Zero, true);
         assert_eq!(flags.0, 0b00000010);
-        flags.write_flag(FlagPosition::ZERO, false);
+        flags.write_flag(FlagPosition::Zero, false);
         assert_eq!(flags.0, 0);
 
-        flags.write_flag(FlagPosition::CARRY, true);
+        flags.write_flag(FlagPosition::Carry, true);
         assert_eq!(flags.0, 0b00000001);
-        flags.write_flag(FlagPosition::CARRY, false);
+        flags.write_flag(FlagPosition::Carry, false);
         assert_eq!(flags.0, 0);
     }
 
@@ -70,25 +76,25 @@ mod tests {
     fn read_flag() {
         let mut flags = FlagsRegister(0);
 
-        flags.write_flag(FlagPosition::NEGATIVE, true);
-        assert_eq!(flags.read_flag(FlagPosition::NEGATIVE), 0b10000000);
-        flags.write_flag(FlagPosition::NEGATIVE, false);
-        assert_eq!(flags.read_flag(FlagPosition::NEGATIVE), 0);
+        flags.write_flag(FlagPosition::Negative, true);
+        assert_eq!(flags.read_flag(FlagPosition::Negative), 0b10000000);
+        flags.write_flag(FlagPosition::Negative, false);
+        assert_eq!(flags.read_flag(FlagPosition::Negative), 0);
 
-        flags.write_flag(FlagPosition::OVERFLOW, true);
-        assert_eq!(flags.read_flag(FlagPosition::OVERFLOW), 0b01000000);
-        flags.write_flag(FlagPosition::OVERFLOW, false);
-        assert_eq!(flags.read_flag(FlagPosition::OVERFLOW), 0);
+        flags.write_flag(FlagPosition::Overflow, true);
+        assert_eq!(flags.read_flag(FlagPosition::Overflow), 0b01000000);
+        flags.write_flag(FlagPosition::Overflow, false);
+        assert_eq!(flags.read_flag(FlagPosition::Overflow), 0);
 
-        flags.write_flag(FlagPosition::ZERO, true);
-        assert_eq!(flags.read_flag(FlagPosition::ZERO), 0b00000010);
-        flags.write_flag(FlagPosition::ZERO, false);
-        assert_eq!(flags.read_flag(FlagPosition::ZERO), 0);
+        flags.write_flag(FlagPosition::Zero, true);
+        assert_eq!(flags.read_flag(FlagPosition::Zero), 0b00000010);
+        flags.write_flag(FlagPosition::Zero, false);
+        assert_eq!(flags.read_flag(FlagPosition::Zero), 0);
 
-        flags.write_flag(FlagPosition::CARRY, true);
-        assert_eq!(flags.read_flag(FlagPosition::CARRY), 0b00000001);
-        flags.write_flag(FlagPosition::CARRY, false);
-        assert_eq!(flags.read_flag(FlagPosition::CARRY), 0);
+        flags.write_flag(FlagPosition::Carry, true);
+        assert_eq!(flags.read_flag(FlagPosition::Carry), 0b00000001);
+        flags.write_flag(FlagPosition::Carry, false);
+        assert_eq!(flags.read_flag(FlagPosition::Carry), 0);
     }
 
     #[test]

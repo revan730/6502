@@ -43,7 +43,7 @@ impl TryInto<u8> for Argument {
     fn try_into(self) -> Result<u8, Self::Error> {
         match self {
             Argument::Byte(byte) => Ok(byte),
-            _ => Err(DecodeError::ByteExpectedArgumentError),
+            _ => Err(DecodeError::ByteExpectedArgument),
         }
     }
 }
@@ -54,7 +54,7 @@ impl TryInto<u16> for Argument {
     fn try_into(self) -> Result<u16, Self::Error> {
         match self {
             Argument::Addr(addr) => Ok(addr),
-            _ => Err(DecodeError::AddrExpectedArgumentError),
+            _ => Err(DecodeError::AddrExpectedArgument),
         }
     }
 }
@@ -78,7 +78,7 @@ impl Cpu {
             y: 0,
             pc: 0x200, // TODO: Probably should point to reset vector
             s: 0,
-            p: FlagsRegister::new(),
+            p: FlagsRegister::default(),
         }
     }
 
@@ -108,7 +108,7 @@ impl Cpu {
         let opcode = Instruction::try_from(value).expect("Failed to decode opcode");
         let argument_kind = INSTRUCTIONS_ADDRESSING
             .get(&opcode)
-            .expect(format!("Unimplemented opcode {:?}", opcode).as_str());
+            .unwrap_or_else(|| panic!("Unimplemented opcode {opcode:?}"));
 
         let arg: Argument = match *argument_kind {
             ArgumentType::Addr => {
@@ -119,7 +119,7 @@ impl Cpu {
                 // TODO: Make args vec of Instruction ?
             }
             ArgumentType::Byte => Argument::Byte(self.fetch(self.pc + 1)),
-            _ => Argument::Void,
+            ArgumentType::Void => Argument::Void,
         };
 
         DecodedInstruction { int: opcode, arg }
@@ -272,13 +272,13 @@ impl Cpu {
                 self.and(arg0);
                 self.pc += 3;
             }
-            Instruction::NOP => {
+            Instruction::Nop => {
                 self.pc += 1;
             }
-            Instruction::JMP => {
+            Instruction::Jmp => {
                 let addr: u16 =
                     TryInto::try_into(instr.arg).expect("JMP execute error: expected address");
-                println!("jump addr {:#X}", addr);
+                println!("jump addr {addr:#X}");
 
                 self.pc = addr;
             }
@@ -287,19 +287,19 @@ impl Cpu {
     }
 
     fn adc(&mut self, operand: u8) {
-        let carry = self.p.read_flag(FlagPosition::CARRY);
+        let carry = self.p.read_flag(FlagPosition::Carry);
         let result = u16::from(self.a) + u16::from(operand) + u16::from(carry);
 
-        self.p.write_flag(FlagPosition::CARRY, result > 255);
-        self.p.write_flag(FlagPosition::ZERO, result == 0);
+        self.p.write_flag(FlagPosition::Carry, result > 255);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
 
         let overflow: bool = i8::checked_add(self.a as i8, operand as i8)
             .and_then(|x| i8::checked_add(x, carry as i8))
             .map_or(true, |_| false);
 
-        self.p.write_flag(FlagPosition::OVERFLOW, overflow);
+        self.p.write_flag(FlagPosition::Overflow, overflow);
         self.p
-            .write_flag(FlagPosition::NEGATIVE, (result & 0b10000000) >> 7 == 1);
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         self.a = result as u8;
     }
@@ -307,9 +307,9 @@ impl Cpu {
     fn and(&mut self, operand: u8) {
         let result = self.a & operand;
 
-        self.p.write_flag(FlagPosition::ZERO, result == 0);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
         self.p
-            .write_flag(FlagPosition::NEGATIVE, (result & 0b10000000) >> 7 == 1);
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         self.a = result;
     }

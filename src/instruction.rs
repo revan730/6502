@@ -30,8 +30,8 @@ pub enum Instruction {
     AndXIndexedZero = 0x35,
     AndYIndexedAbsolute = 0x39,
     AndXIndexedAbsolute = 0x3D,
-    JMP = 0x4C,
-    NOP = 0xEA,
+    Jmp = 0x4C,
+    Nop = 0xEA,
 }
 
 impl Into<u8> for Instruction {
@@ -61,9 +61,9 @@ impl TryFrom<u8> for Instruction {
             0x35 => Ok(Instruction::AndXIndexedZero),
             0x39 => Ok(Instruction::AndYIndexedAbsolute),
             0x3D => Ok(Instruction::AndXIndexedAbsolute),
-            0x4C => Ok(Instruction::JMP),
-            0xEA => Ok(Instruction::NOP),
-            _ => Err(DecodeError::UnknownOpcodeError(format!("{:#X}", value))),
+            0x4C => Ok(Instruction::Jmp),
+            0xEA => Ok(Instruction::Nop),
+            _ => Err(DecodeError::UnknownOpcode(format!("{value:#X}"))),
         }
     }
 }

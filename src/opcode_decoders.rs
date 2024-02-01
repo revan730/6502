@@ -29,9 +29,9 @@ lazy_static! {
         m.insert(Instruction::AndXIndexedAbsolute, ArgumentType::Addr);
         m.insert(Instruction::AndYIndexedAbsolute, ArgumentType::Addr);
 
-        m.insert(Instruction::JMP, ArgumentType::Addr);
+        m.insert(Instruction::Jmp, ArgumentType::Addr);
 
-        m.insert(Instruction::NOP, ArgumentType::Void);
+        m.insert(Instruction::Nop, ArgumentType::Void);
 
         m
     };

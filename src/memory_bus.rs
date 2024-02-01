@@ -41,10 +41,10 @@ impl MemoryBus {
 
     pub fn load_rom(&mut self, offset: usize, data: &[u8]) -> Result<(), MemoryBusError> {
         if offset > RAM_IO_ROM_SIZE {
-            return Err(MemoryBusError::OffsetOutOfBoundsError(offset));
+            return Err(MemoryBusError::OffsetOutOfBounds(offset));
         }
         if RAM_IO_ROM_START + offset + data.len() > RAM_IO_ROM_END {
-            return Err(MemoryBusError::ROMLoadOutOfBoundsError);
+            return Err(MemoryBusError::ROMLoadOutOfBounds);
         }
 
         let (_, copy_start) = self.ram_io_rom.split_at_mut(offset);
