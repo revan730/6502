@@ -134,6 +134,18 @@ lazy_static! {
         );
 
         m.insert(
+            Instruction::AndAbsolute,
+            OpcodeDecoder {
+                name: "AND nn",
+                instruction: Instruction::AndAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
             Instruction::JMP,
             OpcodeDecoder {
                 name: "JMP nn",

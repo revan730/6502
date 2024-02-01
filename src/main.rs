@@ -9,6 +9,7 @@ extern crate lazy_static;
 
 mod cpu;
 mod error;
+mod flags_register;
 mod instruction;
 mod memory_bus;
 mod opcode_decoders;

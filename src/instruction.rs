@@ -11,6 +11,7 @@ pub enum Instruction {
     AdcYIndexedAbsolute = 0x79,
     AdcXIndexedAbsolute = 0x7D,
     AndImmediate = 0x29,
+    AndAbsolute = 0x2D,
     JMP = 0x4C,
     NOP = 0xEA,
 }
@@ -35,6 +36,7 @@ impl TryFrom<u8> for Instruction {
             0x79 => Ok(Instruction::AdcYIndexedAbsolute),
             0x7D => Ok(Instruction::AdcXIndexedAbsolute),
             0x29 => Ok(Instruction::AndImmediate),
+            0x2D => Ok(Instruction::AndAbsolute),
             0x4C => Ok(Instruction::JMP),
             0xEA => Ok(Instruction::NOP),
             _ => Err(DecodeError::UnknownOpcodeError(format!("{:#X}", value))),

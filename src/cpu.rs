@@ -1,39 +1,11 @@
 use std::fmt;
 
 use crate::{
+    flags_register::{FlagPosition, FlagsRegister},
     instruction::Instruction,
     memory_bus::{MemoryBus, MEM_SPACE_END},
     opcode_decoders::OPCODE_DECODERS,
 };
-
-struct FlagsRegister(u8);
-
-enum FlagPosition {
-    NEGATIVE = 7,
-    OVERFLOW = 6,
-    ZERO = 1,
-    CARRY = 0,
-}
-
-impl Into<u8> for FlagPosition {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
-impl FlagsRegister {
-    pub fn write_flag(&mut self, flag: FlagPosition, set: bool) {
-        if set {
-            self.0 &= !(1 << Into::<u8>::into(flag));
-        } else {
-            self.0 |= 1 << Into::<u8>::into(flag);
-        }
-    }
-
-    pub fn read_flag(&self, flag: FlagPosition) -> u8 {
-        self.0 & 1 << Into::<u8>::into(flag)
-    }
-}
 
 pub struct Cpu {
     pub address_space: MemoryBus, // TODO: replace with memory bus implementation
@@ -42,7 +14,7 @@ pub struct Cpu {
     pub y: u8,                    // Y index register
     pub pc: u16,                  // Program counter
     pub s: u8,                    // Stack pointer
-    pub p: u8,                    // Flags register
+    pub p: FlagsRegister,         // Flags register
 }
 
 impl fmt::Debug for Cpu {
@@ -53,7 +25,7 @@ impl fmt::Debug for Cpu {
         writeln!(f, "X: {:#X}", self.x).unwrap();
         writeln!(f, "Y: {:#X}", self.y).unwrap();
         writeln!(f, "PC: {:#X}", self.pc).unwrap();
-        writeln!(f, "S: {:#X} P: {:#X}", self.s, self.p)
+        writeln!(f, "S: {:#X} P: {:#X}", self.s, Into::<u8>::into(&self.p))
     }
 }
 
@@ -76,7 +48,7 @@ impl Cpu {
             y: 0,
             pc: 0x200, // TODO: Probably should point to reset vector
             s: 0,
-            p: 0,
+            p: FlagsRegister::new(),
         }
     }
 
@@ -257,6 +229,22 @@ impl Cpu {
                 self.and(*arg0);
                 self.pc += 2;
             }
+            Instruction::AndAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND nn error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute AND nn error: expected address high byte");
+
+                let arg0 = self.fetch(dword_from_nibbles(*low_byte, *high_byte));
+
+                self.and(arg0);
+                self.pc += 3;
+            }
             Instruction::NOP => {
                 self.pc += 1;
             }
@@ -280,39 +268,19 @@ impl Cpu {
     }
 
     fn adc(&mut self, operand: u8) {
-        let carry = self.p & 0x1;
+        let carry = self.p.read_flag(FlagPosition::CARRY);
         let result = u16::from(self.a) + u16::from(operand) + u16::from(carry);
 
-        // carry flag
-        if result > 255 {
-            self.p |= 1;
-        } else {
-            self.p &= !1;
-        }
-
-        // zero flag
-        if result == 0 {
-            self.p |= 1 << 1;
-        } else {
-            self.p &= !(1 << 1);
-        }
+        self.p.write_flag(FlagPosition::CARRY, result > 255);
+        self.p.write_flag(FlagPosition::ZERO, result == 0);
 
         let overflow: bool = i8::checked_add(self.a as i8, operand as i8)
             .and_then(|x| i8::checked_add(x, carry as i8))
             .map_or(true, |_| false);
 
-        if overflow {
-            self.p |= 1 << 6;
-        } else {
-            self.p &= !(1 << 6);
-        }
-
-        // negative flag
-        if (result & 0b10000000) >> 7 == 1 {
-            self.p |= 1 << 7;
-        } else {
-            self.p &= !(1 << 7);
-        }
+        self.p.write_flag(FlagPosition::OVERFLOW, overflow);
+        self.p
+            .write_flag(FlagPosition::NEGATIVE, (result & 0b10000000) >> 7 == 1);
 
         self.a = result as u8;
     }
@@ -320,19 +288,9 @@ impl Cpu {
     fn and(&mut self, operand: u8) {
         let result = self.a & operand;
 
-        // zero flag
-        if result == 0 {
-            self.p |= 1 << 1;
-        } else {
-            self.p &= !(1 << 1);
-        }
-
-        // negative flag
-        if (result & 0b10000000) >> 7 == 1 {
-            self.p |= 1 << 7;
-        } else {
-            self.p &= !(1 << 7);
-        }
+        self.p.write_flag(FlagPosition::ZERO, result == 0);
+        self.p
+            .write_flag(FlagPosition::NEGATIVE, (result & 0b10000000) >> 7 == 1);
 
         self.a = result;
     }
