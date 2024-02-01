@@ -1,6 +1,18 @@
 use crate::error::DecodeError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AddressingType {
+    XIndexedZeroIndirect,
+    ZeroPage,
+    Immediate,
+    Absolute,
+    ZeroIndirectIndexed,
+    XIndexedZero,
+    XIndexedAbsolute,
+    YIndexedAbsolute,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Instruction {
     AdcXIndexedZeroIndirect = 0x61,
     AdcZeroPage = 0x65,

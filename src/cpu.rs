@@ -1,10 +1,11 @@
 use std::fmt;
 
 use crate::{
+    error::DecodeError,
     flags_register::{FlagPosition, FlagsRegister},
-    instruction::Instruction,
+    instruction::{AddressingType, Instruction},
     memory_bus::{MemoryBus, MEM_SPACE_END},
-    opcode_decoders::OPCODE_DECODERS,
+    opcode_decoders::{ArgumentType, INSTRUCTIONS_ADDRESSING},
 };
 
 pub struct Cpu {
@@ -30,9 +31,38 @@ impl fmt::Debug for Cpu {
 }
 
 #[derive(Debug)]
+enum Argument {
+    Void,
+    Byte(u8),
+    Addr(u16),
+}
+
+impl TryInto<u8> for Argument {
+    type Error = DecodeError;
+
+    fn try_into(self) -> Result<u8, Self::Error> {
+        match self {
+            Argument::Byte(byte) => Ok(byte),
+            _ => Err(DecodeError::ByteExpectedArgumentError),
+        }
+    }
+}
+
+impl TryInto<u16> for Argument {
+    type Error = DecodeError;
+
+    fn try_into(self) -> Result<u16, Self::Error> {
+        match self {
+            Argument::Addr(addr) => Ok(addr),
+            _ => Err(DecodeError::AddrExpectedArgumentError),
+        }
+    }
+}
+
+#[derive(Debug)]
 struct DecodedInstruction {
     pub int: Instruction,
-    pub args: Vec<u8>,
+    pub arg: Argument,
 }
 
 fn dword_from_nibbles(low_byte: u8, high_byte: u8) -> u16 {
@@ -76,279 +106,178 @@ impl Cpu {
 
     fn decode(&self, value: u8) -> DecodedInstruction {
         let opcode = Instruction::try_from(value).expect("Failed to decode opcode");
-        let decoder = OPCODE_DECODERS
+        let argument_kind = INSTRUCTIONS_ADDRESSING
             .get(&opcode)
             .expect(format!("Unimplemented opcode {:?}", opcode).as_str());
 
-        let mut args = Vec::with_capacity(decoder.argument_decoders.len());
-        for arg in decoder.argument_decoders.iter() {
-            match arg.kind {
-                crate::opcode_decoders::ArgumentType::Addr => {
-                    let low_byte = self.fetch(self.pc + arg.index as u16 + 1);
-                    let high_byte = self.fetch(self.pc + arg.index as u16 + 2);
+        let arg: Argument = match *argument_kind {
+            ArgumentType::Addr => {
+                let low_byte = self.fetch(self.pc + 1);
+                let high_byte = self.fetch(self.pc + 2);
 
-                    args.push(low_byte);
-                    args.push(high_byte);
-                    // TODO: Make args vec of Instruction ?
-                }
-                _ => {
-                    let arg_byte = self.fetch(self.pc + arg.index as u16 + 1);
-                    args.push(arg_byte);
-                }
+                Argument::Addr(dword_from_nibbles(low_byte, high_byte))
+                // TODO: Make args vec of Instruction ?
             }
-        }
+            ArgumentType::Byte => Argument::Byte(self.fetch(self.pc + 1)),
+            _ => Argument::Void,
+        };
 
-        DecodedInstruction {
-            int: decoder.instruction,
-            args,
+        DecodedInstruction { int: opcode, arg }
+    }
+
+    fn fetch_operand(&self, instr: DecodedInstruction, addressing_type: AddressingType) -> u8 {
+        match addressing_type {
+            AddressingType::XIndexedZeroIndirect => {
+                let arg0: u8 = TryInto::<u8>::try_into(instr.arg)
+                    .expect("x indexed zero indirect operand fetch error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, arg0) as u16;
+
+                let address = self.fetch_dword(x_indexed_ptr);
+
+                self.fetch(address)
+            }
+            AddressingType::ZeroPage => {
+                let arg0: u8 = TryInto::try_into(instr.arg)
+                    .expect("zero page operand fetch error: expected zero page addr byte");
+
+                self.fetch(arg0 as u16)
+            }
+            AddressingType::Immediate => TryInto::try_into(instr.arg)
+                .expect("immediate operand fetch error: expected immediate byte"),
+            AddressingType::Absolute => {
+                let address: u16 = TryInto::try_into(instr.arg)
+                    .expect("absolute operand fetch error: expected address");
+
+                self.fetch(address)
+            }
+            AddressingType::ZeroIndirectIndexed => {
+                let arg0: u8 = TryInto::try_into(instr.arg)
+                    .expect("Zero indirect indexed operand fetch error: expected byte");
+
+                let low_byte = self.fetch(arg0 as u16);
+                let high_byte = self.fetch(arg0 as u16 + 1);
+                let address = dword_from_nibbles(low_byte, high_byte);
+
+                self.fetch(self.y as u16 + address)
+            }
+            AddressingType::XIndexedZero => {
+                let arg0: u8 = TryInto::try_into(instr.arg)
+                    .expect("X indexed zero page operand fetch error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, arg0) as u16;
+
+                self.fetch(x_indexed_ptr)
+            }
+            AddressingType::XIndexedAbsolute => {
+                let address: u16 = TryInto::try_into(instr.arg)
+                    .expect("X indexed absolute operand fetch error: expected address");
+
+                let address_x_indexed = address + self.x as u16;
+
+                self.fetch(address_x_indexed)
+            }
+            AddressingType::YIndexedAbsolute => {
+                let address: u16 = TryInto::try_into(instr.arg)
+                    .expect("Y indexed absolute operand fetch error: expected address");
+
+                let address_y_indexed = address + self.y as u16;
+
+                self.fetch(address_y_indexed)
+            }
         }
     }
 
     fn execute(&mut self, instr: DecodedInstruction) {
         match instr.int {
             Instruction::AdcXIndexedZeroIndirect => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC (n,X) error: expected byte");
-
-                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
-
-                let address = self.fetch_dword(x_indexed_ptr);
-
-                let operand = self.fetch(address);
-
+                let operand = self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
                 self.adc(operand);
                 self.pc += 2;
             }
             Instruction::AdcZeroPage => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC n error: expected zero page addr byte");
-
-                let arg0 = self.fetch(*arg0 as u16);
-
+                let arg0 = self.fetch_operand(instr, AddressingType::ZeroPage);
                 self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcImmediate => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC #n error: expected immediate byte");
+                let arg0 = self.fetch_operand(instr, AddressingType::Immediate);
 
-                self.adc(*arg0);
+                self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC nn error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute ADC nn error: expected address high byte");
-
-                let arg0 = self.fetch(dword_from_nibbles(*low_byte, *high_byte));
+                let arg0 = self.fetch_operand(instr, AddressingType::Absolute);
                 self.adc(arg0);
                 self.pc += 3;
             }
             Instruction::AdcZeroIndirectIndexed => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC (n),Y error: expected byte");
-
-                let low_byte = self.fetch(*arg0 as u16);
-                let high_byte = self.fetch(*arg0 as u16 + 1);
-                let address = dword_from_nibbles(low_byte, high_byte);
-
-                let operand = self.fetch(self.y as u16 + address);
-
-                self.adc(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcXIndexedZero => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC n,X error: expected byte");
-
-                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
-
-                let operand = self.fetch(x_indexed_ptr);
-
-                self.adc(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcYIndexedAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC nn,Y error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute ADC nn,Y error: expected address high byte");
-
-                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.y as u16;
-
-                let operand = self.fetch(address);
-
-                self.adc(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.adc(arg0);
                 self.pc += 3;
             }
             Instruction::AdcXIndexedAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute ADC nn,X error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute ADC nn,X error: expected address high byte");
-
-                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.x as u16;
-
-                let operand = self.fetch(address);
-
-                self.adc(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.adc(arg0);
                 self.pc += 3;
             }
+            // AND
             Instruction::AndXIndexedZeroIndirect => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND (n,X) error: expected byte");
-
-                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
-
-                let address = self.fetch_dword(x_indexed_ptr);
-
-                let operand = self.fetch(address);
-
+                let operand = self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
                 self.and(operand);
                 self.pc += 2;
             }
             Instruction::AndZeroPage => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND n error: expected zero page addr byte");
-
-                let arg0 = self.fetch(*arg0 as u16);
-
+                let arg0 = self.fetch_operand(instr, AddressingType::ZeroPage);
                 self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndImmediate => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND #n error: expected immediate byte");
-
-                self.and(*arg0);
+                let arg0 = self.fetch_operand(instr, AddressingType::Immediate);
+                self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND nn error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute AND nn error: expected address high byte");
-
-                let arg0 = self.fetch(dword_from_nibbles(*low_byte, *high_byte));
-
+                let arg0 = self.fetch_operand(instr, AddressingType::Absolute);
                 self.and(arg0);
                 self.pc += 3;
             }
             Instruction::AndZeroIndirectIndexed => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND (n),Y error: expected byte");
-
-                let low_byte = self.fetch(*arg0 as u16);
-                let high_byte = self.fetch(*arg0 as u16 + 1);
-                let address = dword_from_nibbles(low_byte, high_byte);
-
-                let operand = self.fetch(self.y as u16 + address);
-
-                self.and(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndXIndexedZero => {
-                let arg0 = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND n,X error: expected byte");
-
-                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
-
-                let operand = self.fetch(x_indexed_ptr);
-
-                self.and(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndYIndexedAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND nn,Y error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute AND nn,Y error: expected address high byte");
-
-                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.y as u16;
-
-                let operand = self.fetch(address);
-
-                self.and(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.and(arg0);
                 self.pc += 3;
             }
             Instruction::AndXIndexedAbsolute => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute AND nn,X error: expected address low byte");
-
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute AND nn,X error: expected address high byte");
-
-                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.x as u16;
-
-                let operand = self.fetch(address);
-
-                self.and(operand);
+                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.and(arg0);
                 self.pc += 3;
             }
             Instruction::NOP => {
                 self.pc += 1;
             }
             Instruction::JMP => {
-                let low_byte = instr
-                    .args
-                    .get(0)
-                    .expect("execute JMP nn error: expected address low byte");
-                let high_byte = instr
-                    .args
-                    .get(1)
-                    .expect("execute JMP nn error: expected address high byte");
-
-                let addr = dword_from_nibbles(*low_byte, *high_byte);
+                let addr: u16 =
+                    TryInto::try_into(instr.arg).expect("JMP execute error: expected address");
                 println!("jump addr {:#X}", addr);
 
                 self.pc = addr;
