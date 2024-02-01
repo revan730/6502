@@ -2,9 +2,38 @@ use std::fmt;
 
 use crate::{
     instruction::Instruction,
-    memory_bus::{MemoryBus, MEM_SPACE_END, ZERO_PAGE_END, ZERO_PAGE_SIZE},
+    memory_bus::{MemoryBus, MEM_SPACE_END},
     opcode_decoders::OPCODE_DECODERS,
 };
+
+struct FlagsRegister(u8);
+
+enum FlagPosition {
+    NEGATIVE = 7,
+    OVERFLOW = 6,
+    ZERO = 1,
+    CARRY = 0,
+}
+
+impl Into<u8> for FlagPosition {
+    fn into(self) -> u8 {
+        self as u8
+    }
+}
+
+impl FlagsRegister {
+    pub fn write_flag(&mut self, flag: FlagPosition, set: bool) {
+        if set {
+            self.0 &= !(1 << Into::<u8>::into(flag));
+        } else {
+            self.0 |= 1 << Into::<u8>::into(flag);
+        }
+    }
+
+    pub fn read_flag(&self, flag: FlagPosition) -> u8 {
+        self.0 & 1 << Into::<u8>::into(flag)
+    }
+}
 
 pub struct Cpu {
     pub address_space: MemoryBus, // TODO: replace with memory bus implementation
@@ -219,6 +248,15 @@ impl Cpu {
                 self.adc(operand);
                 self.pc += 3;
             }
+            Instruction::AndImmediate => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND #n error: expected immediate byte");
+
+                self.and(*arg0);
+                self.pc += 2;
+            }
             Instruction::NOP => {
                 self.pc += 1;
             }
@@ -277,5 +315,25 @@ impl Cpu {
         }
 
         self.a = result as u8;
+    }
+
+    fn and(&mut self, operand: u8) {
+        let result = self.a & operand;
+
+        // zero flag
+        if result == 0 {
+            self.p |= 1 << 1;
+        } else {
+            self.p &= !(1 << 1);
+        }
+
+        // negative flag
+        if (result & 0b10000000) >> 7 == 1 {
+            self.p |= 1 << 7;
+        } else {
+            self.p &= !(1 << 7);
+        }
+
+        self.a = result;
     }
 }
