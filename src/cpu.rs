@@ -220,6 +220,21 @@ impl Cpu {
                 self.adc(operand);
                 self.pc += 3;
             }
+            Instruction::AndXIndexedZeroIndirect => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND (n,X) error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
+
+                let address = self.fetch_dword(x_indexed_ptr);
+
+                let operand = self.fetch(address);
+
+                self.and(operand);
+                self.pc += 2;
+            }
             Instruction::AndZeroPage => {
                 let arg0 = instr
                     .args
@@ -254,6 +269,70 @@ impl Cpu {
                 let arg0 = self.fetch(dword_from_nibbles(*low_byte, *high_byte));
 
                 self.and(arg0);
+                self.pc += 3;
+            }
+            Instruction::AndZeroIndirectIndexed => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND (n),Y error: expected byte");
+
+                let low_byte = self.fetch(*arg0 as u16);
+                let high_byte = self.fetch(*arg0 as u16 + 1);
+                let address = dword_from_nibbles(low_byte, high_byte);
+
+                let operand = self.fetch(self.y as u16 + address);
+
+                self.and(operand);
+                self.pc += 2;
+            }
+            Instruction::AndXIndexedZero => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND n,X error: expected byte");
+
+                let x_indexed_ptr = u8::wrapping_add(self.x, *arg0) as u16;
+
+                let operand = self.fetch(x_indexed_ptr);
+
+                self.and(operand);
+                self.pc += 2;
+            }
+            Instruction::AndYIndexedAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND nn,Y error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute AND nn,Y error: expected address high byte");
+
+                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.y as u16;
+
+                let operand = self.fetch(address);
+
+                self.and(operand);
+                self.pc += 3;
+            }
+            Instruction::AndXIndexedAbsolute => {
+                let low_byte = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND nn,X error: expected address low byte");
+
+                let high_byte = instr
+                    .args
+                    .get(1)
+                    .expect("execute AND nn,X error: expected address high byte");
+
+                let address = (dword_from_nibbles(*low_byte, *high_byte)) + self.x as u16;
+
+                let operand = self.fetch(address);
+
+                self.and(operand);
                 self.pc += 3;
             }
             Instruction::NOP => {

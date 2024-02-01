@@ -122,6 +122,18 @@ lazy_static! {
         );
 
         m.insert(
+            Instruction::AndXIndexedZeroIndirect,
+            OpcodeDecoder {
+                name: "AND (n,X)",
+                instruction: Instruction::AndXIndexedZeroIndirect,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
             Instruction::AndZeroPage,
             OpcodeDecoder {
                 name: "AND n",
@@ -150,6 +162,78 @@ lazy_static! {
             OpcodeDecoder {
                 name: "AND nn",
                 instruction: Instruction::AndAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AndZeroIndirectIndexed,
+            OpcodeDecoder {
+                name: "AND (n),Y",
+                instruction: Instruction::AndZeroIndirectIndexed,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AndXIndexedZero,
+            OpcodeDecoder {
+                name: "AND n,X",
+                instruction: Instruction::AndXIndexedZero,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AndYIndexedAbsolute,
+            OpcodeDecoder {
+                name: "AND nn,Y",
+                instruction: Instruction::AndYIndexedAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AdcXIndexedAbsolute,
+            OpcodeDecoder {
+                name: "ADC nn,X",
+                instruction: Instruction::AdcXIndexedAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AndYIndexedAbsolute,
+            OpcodeDecoder {
+                name: "AND nn,Y",
+                instruction: Instruction::AndYIndexedAbsolute,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Addr,
+                }],
+            },
+        );
+
+        m.insert(
+            Instruction::AndXIndexedAbsolute,
+            OpcodeDecoder {
+                name: "AND nn,X",
+                instruction: Instruction::AndXIndexedAbsolute,
                 argument_decoders: vec![ArgumentDecoder {
                     index: 0,
                     kind: ArgumentType::Addr,
