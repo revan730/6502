@@ -122,6 +122,18 @@ lazy_static! {
         );
 
         m.insert(
+            Instruction::AndZeroPage,
+            OpcodeDecoder {
+                name: "AND n",
+                instruction: Instruction::AndZeroPage,
+                argument_decoders: vec![ArgumentDecoder {
+                    index: 0,
+                    kind: ArgumentType::Byte,
+                }],
+            },
+        );
+
+        m.insert(
             Instruction::AndImmediate,
             OpcodeDecoder {
                 name: "AND #n",

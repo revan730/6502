@@ -220,6 +220,17 @@ impl Cpu {
                 self.adc(operand);
                 self.pc += 3;
             }
+            Instruction::AndZeroPage => {
+                let arg0 = instr
+                    .args
+                    .get(0)
+                    .expect("execute AND n error: expected zero page addr byte");
+
+                let arg0 = self.fetch(*arg0 as u16);
+
+                self.and(arg0);
+                self.pc += 2;
+            }
             Instruction::AndImmediate => {
                 let arg0 = instr
                     .args
