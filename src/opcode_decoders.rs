@@ -43,6 +43,23 @@ lazy_static! {
         m.insert(Instruction::Cli, ArgumentType::Void);
         m.insert(Instruction::Clv, ArgumentType::Void);
 
+        m.insert(Instruction::CmpXIndexedZeroIndirect, ArgumentType::Byte);
+        m.insert(Instruction::CmpZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::CmpImmediate, ArgumentType::Byte);
+        m.insert(Instruction::CmpZeroIndirectIndexed, ArgumentType::Byte);
+        m.insert(Instruction::CmpXIndexedZero, ArgumentType::Byte);
+        m.insert(Instruction::CmpYIndexedAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::CmpXIndexedAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::CmpAbsolute, ArgumentType::Addr);
+
+        m.insert(Instruction::CpxZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::CpxImmediate, ArgumentType::Byte);
+        m.insert(Instruction::CpxAbsolute, ArgumentType::Addr);
+
+        m.insert(Instruction::CpyZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::CpyImmediate, ArgumentType::Byte);
+        m.insert(Instruction::CpyAbsolute, ArgumentType::Addr);
+
         m.insert(Instruction::Jmp, ArgumentType::Addr);
 
         m.insert(Instruction::Nop, ArgumentType::Void);

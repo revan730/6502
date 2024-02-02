@@ -22,6 +22,7 @@ pub enum Instruction {
     AdcXIndexedZero = 0x75,
     AdcYIndexedAbsolute = 0x79,
     AdcXIndexedAbsolute = 0x7D,
+
     AndXIndexedZeroIndirect = 0x21,
     AndZeroPage = 0x25,
     AndImmediate = 0x29,
@@ -30,18 +31,40 @@ pub enum Instruction {
     AndXIndexedZero = 0x35,
     AndYIndexedAbsolute = 0x39,
     AndXIndexedAbsolute = 0x3D,
+
     AslAbsolute = 0x0E,
     AslZeroPage = 0x06,
     AslAccumulator = 0x0A,
     AslXIndexedZero = 0x16,
     AslXIndexedAbsolute = 0x1E,
+
     BitZeroPage = 0x24,
     BitAbsolute = 0x2C,
+
     Clc = 0x18,
     Cld = 0xD8,
     Cli = 0x58,
     Clv = 0xB8,
+
+    CmpXIndexedZeroIndirect = 0xC1,
+    CmpZeroPage = 0xC5,
+    CmpImmediate = 0xC9,
+    CmpAbsolute = 0xCD,
+    CmpZeroIndirectIndexed = 0xD1,
+    CmpXIndexedZero = 0xD5,
+    CmpYIndexedAbsolute = 0xD9,
+    CmpXIndexedAbsolute = 0xDD,
+
+    CpxZeroPage = 0xE4,
+    CpxImmediate = 0xE0,
+    CpxAbsolute = 0xEC,
+
+    CpyZeroPage = 0xC4,
+    CpyImmediate = 0xC0,
+    CpyAbsolute = 0xCC,
+
     Jmp = 0x4C,
+
     Nop = 0xEA,
 }
 
@@ -64,6 +87,7 @@ impl TryFrom<u8> for Instruction {
             0x75 => Ok(Instruction::AdcXIndexedZero),
             0x79 => Ok(Instruction::AdcYIndexedAbsolute),
             0x7D => Ok(Instruction::AdcXIndexedAbsolute),
+
             0x21 => Ok(Instruction::AndXIndexedZeroIndirect),
             0x25 => Ok(Instruction::AndZeroPage),
             0x29 => Ok(Instruction::AndImmediate),
@@ -72,17 +96,38 @@ impl TryFrom<u8> for Instruction {
             0x35 => Ok(Instruction::AndXIndexedZero),
             0x39 => Ok(Instruction::AndYIndexedAbsolute),
             0x3D => Ok(Instruction::AndXIndexedAbsolute),
+
             0x0E => Ok(Instruction::AslAbsolute),
             0x06 => Ok(Instruction::AslZeroPage),
             0x0A => Ok(Instruction::AslAccumulator),
             0x16 => Ok(Instruction::AslXIndexedZero),
             0x1E => Ok(Instruction::AslXIndexedAbsolute),
+
             0x24 => Ok(Instruction::BitZeroPage),
             0x2C => Ok(Instruction::BitAbsolute),
+
             0x18 => Ok(Instruction::Clc),
             0xD8 => Ok(Instruction::Cld),
             0x58 => Ok(Instruction::Cli),
             0xB8 => Ok(Instruction::Clv),
+
+            0xC1 => Ok(Instruction::CmpXIndexedZeroIndirect),
+            0xC5 => Ok(Instruction::CmpZeroPage),
+            0xC9 => Ok(Instruction::CmpImmediate),
+            0xCD => Ok(Instruction::CmpAbsolute),
+            0xD1 => Ok(Instruction::CmpZeroIndirectIndexed),
+            0xD5 => Ok(Instruction::CmpXIndexedZero),
+            0xD9 => Ok(Instruction::CmpYIndexedAbsolute),
+            0xDD => Ok(Instruction::CmpXIndexedAbsolute),
+
+            0xE4 => Ok(Instruction::CpxZeroPage),
+            0xE0 => Ok(Instruction::CpxImmediate),
+            0xEC => Ok(Instruction::CpxAbsolute),
+
+            0xC4 => Ok(Instruction::CpyZeroPage),
+            0xC0 => Ok(Instruction::CpyImmediate),
+            0xCC => Ok(Instruction::CpyAbsolute),
+
             0x4C => Ok(Instruction::Jmp),
             0xEA => Ok(Instruction::Nop),
             _ => Err(DecodeError::UnknownOpcode(format!("{value:#X}"))),

@@ -331,6 +331,7 @@ impl Cpu {
                 self.asl(AslOperand::Value(arg0), address);
                 self.pc += 3;
             }
+            // BIT
             Instruction::BitZeroPage => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
@@ -345,6 +346,7 @@ impl Cpu {
                 self.bit(arg0);
                 self.pc += 3;
             }
+            // Flag reset
             Instruction::Clc => {
                 self.clear_flag(FlagPosition::Carry);
                 self.pc += 1;
@@ -360,6 +362,96 @@ impl Cpu {
             Instruction::Clv => {
                 self.clear_flag(FlagPosition::Overflow);
                 self.pc += 1;
+            }
+            // CMP
+            Instruction::CmpXIndexedZeroIndirect => {
+                let FetchOperandResult(operand, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.cmp(self.a, operand);
+                self.pc += 2;
+            }
+            Instruction::CmpZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.cmp(self.a, arg0);
+                self.pc += 2;
+            }
+            Instruction::CmpImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.cmp(self.a, arg0);
+                self.pc += 2;
+            }
+            Instruction::CmpAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.cmp(self.a, arg0);
+                self.pc += 3;
+            }
+            Instruction::CmpZeroIndirectIndexed => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.cmp(self.a, arg0);
+                self.pc += 2;
+            }
+            Instruction::CmpXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.cmp(self.a, arg0);
+                self.pc += 2;
+            }
+            Instruction::CmpYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.cmp(self.a, arg0);
+                self.pc += 3;
+            }
+            Instruction::CmpXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.cmp(self.a, arg0);
+                self.pc += 3;
+            }
+            // CPX
+            Instruction::CpxZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.cmp(self.x, arg0);
+                self.pc += 2;
+            }
+            Instruction::CpxImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.cmp(self.x, arg0);
+                self.pc += 2;
+            }
+            Instruction::CpxAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.cmp(self.x, arg0);
+                self.pc += 3;
+            }
+            // CPY
+            Instruction::CpyZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.cmp(self.y, arg0);
+                self.pc += 2;
+            }
+            Instruction::CpyImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.cmp(self.y, arg0);
+                self.pc += 2;
+            }
+            Instruction::CpyAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.cmp(self.y, arg0);
+                self.pc += 3;
             }
             Instruction::Nop => {
                 self.pc += 1;
@@ -432,7 +524,7 @@ impl Cpu {
 
         self.p.write_flag(FlagPosition::Zero, result == 0);
         self.p
-            .write_flag(FlagPosition::Negative, (operand & 0b0100_0000) >> 6 == 1);
+            .write_flag(FlagPosition::Overflow, (operand & 0b0100_0000) >> 6 == 1);
         self.p
             .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
     }
@@ -446,13 +538,13 @@ impl Cpu {
             _ => panic!("Unsupported clear flag instruction for flag {}", flag as u8),
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn shl() {
-        let a: u8 = 0b1110_1001u8.wrapping_shl(1);
-        assert_eq!(a, 0b1101_0010);
+    fn cmp(&mut self, register: u8, operand: u8) {
+        let result = u8::saturating_sub(register, operand);
+
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+        self.p.write_flag(FlagPosition::Carry, register >= operand);
     }
 }
