@@ -3,6 +3,8 @@ pub struct FlagsRegister(u8);
 pub enum FlagPosition {
     Negative = 7,
     Overflow = 6,
+    DecimalMode = 3,
+    IrqDisable = 2,
     Zero = 1,
     Carry = 0,
 }

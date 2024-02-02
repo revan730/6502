@@ -331,6 +331,36 @@ impl Cpu {
                 self.asl(AslOperand::Value(arg0), address);
                 self.pc += 3;
             }
+            Instruction::BitZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+
+                self.bit(arg0);
+                self.pc += 2;
+            }
+            Instruction::BitAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+
+                self.bit(arg0);
+                self.pc += 3;
+            }
+            Instruction::Clc => {
+                self.clear_flag(FlagPosition::Carry);
+                self.pc += 1;
+            }
+            Instruction::Cld => {
+                self.clear_flag(FlagPosition::DecimalMode);
+                self.pc += 1;
+            }
+            Instruction::Cli => {
+                self.clear_flag(FlagPosition::IrqDisable);
+                self.pc += 1;
+            }
+            Instruction::Clv => {
+                self.clear_flag(FlagPosition::Overflow);
+                self.pc += 1;
+            }
             Instruction::Nop => {
                 self.pc += 1;
             }
@@ -394,6 +424,26 @@ impl Cpu {
                 operand_address.expect("ASL: expected address") as usize,
                 result,
             ),
+        }
+    }
+
+    fn bit(&mut self, operand: u8) {
+        let result = self.a & operand;
+
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (operand & 0b0100_0000) >> 6 == 1);
+        self.p
+            .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn clear_flag(&mut self, flag: FlagPosition) {
+        match flag {
+            FlagPosition::Carry
+            | FlagPosition::DecimalMode
+            | FlagPosition::IrqDisable
+            | FlagPosition::Overflow => self.p.write_flag(flag, false),
+            _ => panic!("Unsupported clear flag instruction for flag {}", flag as u8),
         }
     }
 }
