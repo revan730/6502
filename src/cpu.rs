@@ -37,6 +37,11 @@ enum Argument {
     Addr(u16),
 }
 
+enum AslOperand {
+    A,
+    Value(u8),
+}
+
 impl TryInto<u8> for Argument {
     type Error = DecodeError;
 
@@ -68,6 +73,8 @@ struct DecodedInstruction {
 fn dword_from_nibbles(low_byte: u8, high_byte: u8) -> u16 {
     u16::from(high_byte) << 8 | u16::from(low_byte)
 }
+
+struct FetchOperandResult(u8, Option<u16>);
 
 impl Cpu {
     pub fn new(mem_bus: MemoryBus) -> Cpu {
@@ -125,7 +132,11 @@ impl Cpu {
         DecodedInstruction { int: opcode, arg }
     }
 
-    fn fetch_operand(&self, instr: DecodedInstruction, addressing_type: AddressingType) -> u8 {
+    fn fetch_operand(
+        &self,
+        instr: DecodedInstruction,
+        addressing_type: AddressingType,
+    ) -> FetchOperandResult {
         match addressing_type {
             AddressingType::XIndexedZeroIndirect => {
                 let arg0: u8 = TryInto::<u8>::try_into(instr.arg)
@@ -135,21 +146,24 @@ impl Cpu {
 
                 let address = self.fetch_dword(x_indexed_ptr);
 
-                self.fetch(address)
+                FetchOperandResult(self.fetch(address), Some(address))
             }
             AddressingType::ZeroPage => {
                 let arg0: u8 = TryInto::try_into(instr.arg)
                     .expect("zero page operand fetch error: expected zero page addr byte");
 
-                self.fetch(arg0 as u16)
+                FetchOperandResult(self.fetch(arg0 as u16), Some(arg0 as u16))
             }
-            AddressingType::Immediate => TryInto::try_into(instr.arg)
-                .expect("immediate operand fetch error: expected immediate byte"),
+            AddressingType::Immediate => FetchOperandResult(
+                TryInto::try_into(instr.arg)
+                    .expect("immediate operand fetch error: expected immediate byte"),
+                None,
+            ),
             AddressingType::Absolute => {
                 let address: u16 = TryInto::try_into(instr.arg)
                     .expect("absolute operand fetch error: expected address");
 
-                self.fetch(address)
+                FetchOperandResult(self.fetch(address), Some(address))
             }
             AddressingType::ZeroIndirectIndexed => {
                 let arg0: u8 = TryInto::try_into(instr.arg)
@@ -159,7 +173,7 @@ impl Cpu {
                 let high_byte = self.fetch(arg0 as u16 + 1);
                 let address = dword_from_nibbles(low_byte, high_byte);
 
-                self.fetch(self.y as u16 + address)
+                FetchOperandResult(self.fetch(self.y as u16 + address), Some(address))
             }
             AddressingType::XIndexedZero => {
                 let arg0: u8 = TryInto::try_into(instr.arg)
@@ -167,7 +181,7 @@ impl Cpu {
 
                 let x_indexed_ptr = u8::wrapping_add(self.x, arg0) as u16;
 
-                self.fetch(x_indexed_ptr)
+                FetchOperandResult(self.fetch(x_indexed_ptr), Some(x_indexed_ptr))
             }
             AddressingType::XIndexedAbsolute => {
                 let address: u16 = TryInto::try_into(instr.arg)
@@ -175,7 +189,7 @@ impl Cpu {
 
                 let address_x_indexed = address + self.x as u16;
 
-                self.fetch(address_x_indexed)
+                FetchOperandResult(self.fetch(address_x_indexed), Some(address_x_indexed))
             }
             AddressingType::YIndexedAbsolute => {
                 let address: u16 = TryInto::try_into(instr.arg)
@@ -183,7 +197,7 @@ impl Cpu {
 
                 let address_y_indexed = address + self.y as u16;
 
-                self.fetch(address_y_indexed)
+                FetchOperandResult(self.fetch(address_y_indexed), Some(address_y_indexed))
             }
         }
     }
@@ -191,85 +205,130 @@ impl Cpu {
     fn execute(&mut self, instr: DecodedInstruction) {
         match instr.int {
             Instruction::AdcXIndexedZeroIndirect => {
-                let operand = self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                let FetchOperandResult(operand, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
                 self.adc(operand);
                 self.pc += 2;
             }
             Instruction::AdcZeroPage => {
-                let arg0 = self.fetch_operand(instr, AddressingType::ZeroPage);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
                 self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcImmediate => {
-                let arg0 = self.fetch_operand(instr, AddressingType::Immediate);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
 
                 self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::Absolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
                 self.adc(arg0);
                 self.pc += 3;
             }
             Instruction::AdcZeroIndirectIndexed => {
-                let arg0 = self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
                 self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcXIndexedZero => {
-                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedZero);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
                 self.adc(arg0);
                 self.pc += 2;
             }
             Instruction::AdcYIndexedAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
                 self.adc(arg0);
                 self.pc += 3;
             }
             Instruction::AdcXIndexedAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
                 self.adc(arg0);
                 self.pc += 3;
             }
             // AND
             Instruction::AndXIndexedZeroIndirect => {
-                let operand = self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
-                self.and(operand);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndZeroPage => {
-                let arg0 = self.fetch_operand(instr, AddressingType::ZeroPage);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
                 self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndImmediate => {
-                let arg0 = self.fetch_operand(instr, AddressingType::Immediate);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
                 self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::Absolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
                 self.and(arg0);
                 self.pc += 3;
             }
             Instruction::AndZeroIndirectIndexed => {
-                let arg0 = self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
                 self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndXIndexedZero => {
-                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedZero);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
                 self.and(arg0);
                 self.pc += 2;
             }
             Instruction::AndYIndexedAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
                 self.and(arg0);
                 self.pc += 3;
             }
             Instruction::AndXIndexedAbsolute => {
-                let arg0 = self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
                 self.and(arg0);
+                self.pc += 3;
+            }
+            // ASL
+            Instruction::AslAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.asl(AslOperand::Value(arg0), address);
+                self.pc += 3;
+            }
+            Instruction::AslZeroPage => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.asl(AslOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::AslAccumulator => {
+                self.asl(AslOperand::A, None);
+                self.pc += 1;
+            }
+            Instruction::AslXIndexedZero => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.asl(AslOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::AslXIndexedAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.asl(AslOperand::Value(arg0), address);
                 self.pc += 3;
             }
             Instruction::Nop => {
@@ -312,5 +371,38 @@ impl Cpu {
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         self.a = result;
+    }
+
+    fn asl(&mut self, operand: AslOperand, operand_address: Option<u16>) {
+        let operand_value: u8 = match operand {
+            AslOperand::A => self.a,
+            AslOperand::Value(v) => v,
+        };
+
+        let result = operand_value.wrapping_shl(1);
+        println!("operand_value {operand_value:#X} result {result:#X}");
+
+        self.p
+            .write_flag(FlagPosition::Carry, (operand_value & 0b1000_0000) >> 7 == 1);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+
+        match operand {
+            AslOperand::A => self.a = result,
+            AslOperand::Value(_) => self.address_space.write_byte(
+                operand_address.expect("ASL: expected address") as usize,
+                result,
+            ),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn shl() {
+        let a: u8 = 0b1110_1001u8.wrapping_shl(1);
+        assert_eq!(a, 0b1101_0010);
     }
 }

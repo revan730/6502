@@ -58,10 +58,21 @@ impl MemoryBus {
     }
 
     pub fn read_byte(&self, address: usize) -> u8 {
-        println!("Read from addr {:#X}", address);
+        println!("Read from addr {address:#X}");
         match address {
             ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address],
             RAM_IO_ROM_START..=RAM_IO_ROM_END => self.ram_io_rom[address - RAM_IO_ROM_START],
+            _ => todo!(),
+        }
+    }
+
+    pub fn write_byte(&mut self, address: usize, value: u8) {
+        println!("write {value:#X} to addr {address:#X}");
+        match address {
+            ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address] = value,
+            RAM_IO_ROM_START..=RAM_IO_ROM_END => {
+                self.ram_io_rom[address - RAM_IO_ROM_START] = value
+            }
             _ => todo!(),
         }
     }
