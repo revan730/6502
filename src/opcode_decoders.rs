@@ -60,6 +60,14 @@ lazy_static! {
         m.insert(Instruction::CpyImmediate, ArgumentType::Byte);
         m.insert(Instruction::CpyAbsolute, ArgumentType::Addr);
 
+        m.insert(Instruction::DecAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::DecZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::DecXIndexedZero, ArgumentType::Byte);
+        m.insert(Instruction::DecXIndexedAbsolute, ArgumentType::Addr);
+
+        m.insert(Instruction::Dex, ArgumentType::Void);
+        m.insert(Instruction::Dey, ArgumentType::Void);
+
         m.insert(Instruction::Jmp, ArgumentType::Addr);
 
         m.insert(Instruction::Nop, ArgumentType::Void);

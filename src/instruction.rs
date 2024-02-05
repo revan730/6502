@@ -63,6 +63,14 @@ pub enum Instruction {
     CpyImmediate = 0xC0,
     CpyAbsolute = 0xCC,
 
+    DecZeroPage = 0xC6,
+    DecAbsolute = 0xCE,
+    DecXIndexedZero = 0xD6,
+    DecXIndexedAbsolute = 0xDE,
+
+    Dex = 0xCA,
+    Dey = 0x88,
+
     Jmp = 0x4C,
 
     Nop = 0xEA,
@@ -127,6 +135,14 @@ impl TryFrom<u8> for Instruction {
             0xC4 => Ok(Instruction::CpyZeroPage),
             0xC0 => Ok(Instruction::CpyImmediate),
             0xCC => Ok(Instruction::CpyAbsolute),
+
+            0xCE => Ok(Instruction::DecAbsolute),
+            0xC6 => Ok(Instruction::DecZeroPage),
+            0xD6 => Ok(Instruction::DecXIndexedZero),
+            0xDE => Ok(Instruction::DecXIndexedAbsolute),
+
+            0xCA => Ok(Instruction::Dex),
+            0x88 => Ok(Instruction::Dey),
 
             0x4C => Ok(Instruction::Jmp),
             0xEA => Ok(Instruction::Nop),
