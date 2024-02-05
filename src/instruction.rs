@@ -71,6 +71,14 @@ pub enum Instruction {
     Dex = 0xCA,
     Dey = 0x88,
 
+    IncZeroPage = 0xE6,
+    IncAbsolute = 0xEE,
+    IncXIndexedZero = 0xF6,
+    IncXIndexedAbsolute = 0xFE,
+
+    Inx = 0xE8,
+    Iny = 0xC8,
+
     Jmp = 0x4C,
 
     Nop = 0xEA,
@@ -143,6 +151,14 @@ impl TryFrom<u8> for Instruction {
 
             0xCA => Ok(Instruction::Dex),
             0x88 => Ok(Instruction::Dey),
+
+            0xEE => Ok(Instruction::IncAbsolute),
+            0xE6 => Ok(Instruction::IncZeroPage),
+            0xF6 => Ok(Instruction::IncXIndexedZero),
+            0xFE => Ok(Instruction::IncXIndexedAbsolute),
+
+            0xE8 => Ok(Instruction::Inx),
+            0xC8 => Ok(Instruction::Iny),
 
             0x4C => Ok(Instruction::Jmp),
             0xEA => Ok(Instruction::Nop),

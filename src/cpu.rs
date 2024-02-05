@@ -42,7 +42,7 @@ enum AslOperand {
     Value(u8),
 }
 
-enum DecOperand {
+enum IncDecOperand {
     X,
     Y,
     Value(u8),
@@ -463,35 +463,70 @@ impl Cpu {
             Instruction::DecAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::Absolute);
-                self.dec(DecOperand::Value(arg0), address);
+                self.inc_dec(false, IncDecOperand::Value(arg0), address);
                 self.pc += 3;
             }
             Instruction::DecZeroPage => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
-                self.dec(DecOperand::Value(arg0), address);
+                self.inc_dec(false, IncDecOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::DecXIndexedZero => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedZero);
-                self.dec(DecOperand::Value(arg0), address);
+                self.inc_dec(false, IncDecOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::DecXIndexedAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
-                self.dec(DecOperand::Value(arg0), address);
+                self.inc_dec(false, IncDecOperand::Value(arg0), address);
                 self.pc += 3;
             }
             // DEX
             Instruction::Dex => {
-                self.dec(DecOperand::X, None);
+                self.inc_dec(false, IncDecOperand::X, None);
                 self.pc += 1;
             }
             // DEY
             Instruction::Dey => {
-                self.dec(DecOperand::Y, None);
+                self.inc_dec(false, IncDecOperand::Y, None);
+                self.pc += 1;
+            }
+            // INC
+            Instruction::IncAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.inc_dec(true, IncDecOperand::Value(arg0), address);
+                self.pc += 3;
+            }
+            Instruction::IncZeroPage => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.inc_dec(true, IncDecOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::IncXIndexedZero => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.inc_dec(true, IncDecOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::IncXIndexedAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.inc_dec(true, IncDecOperand::Value(arg0), address);
+                self.pc += 3;
+            }
+            // INX
+            Instruction::Inx => {
+                self.inc_dec(true, IncDecOperand::X, None);
+                self.pc += 1;
+            }
+            // INY
+            Instruction::Iny => {
+                self.inc_dec(true, IncDecOperand::Y, None);
                 self.pc += 1;
             }
             Instruction::Nop => {
@@ -589,24 +624,28 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Carry, register >= operand);
     }
 
-    fn dec(&mut self, operand: DecOperand, operand_address: Option<u16>) {
+    fn inc_dec(&mut self, inc: bool, operand: IncDecOperand, operand_address: Option<u16>) {
         let operand_value: u8 = match operand {
-            DecOperand::X => self.x,
-            DecOperand::Y => self.y,
-            DecOperand::Value(v) => v,
+            IncDecOperand::X => self.x,
+            IncDecOperand::Y => self.y,
+            IncDecOperand::Value(v) => v,
         };
 
-        let result = u8::wrapping_sub(operand_value, 1);
+        let result = if inc {
+            u8::wrapping_add(operand_value, 1)
+        } else {
+            u8::wrapping_sub(operand_value, 1)
+        };
 
         self.p.write_flag(FlagPosition::Zero, result == 0);
         self.p
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         match operand {
-            DecOperand::X => self.x = result,
-            DecOperand::Y => self.y = result,
-            DecOperand::Value(_) => self.address_space.write_byte(
-                operand_address.expect("DEC: expected address") as usize,
+            IncDecOperand::X => self.x = result,
+            IncDecOperand::Y => self.y = result,
+            IncDecOperand::Value(_) => self.address_space.write_byte(
+                operand_address.expect("INC/DEC: expected address") as usize,
                 result,
             ),
         }
