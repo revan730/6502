@@ -645,10 +645,26 @@ impl Cpu {
             }
             Instruction::Jmp => {
                 let addr: u16 =
-                    TryInto::try_into(instr.arg).expect("JMP execute error: expected address");
+                    TryInto::try_into(instr.arg).expect("JMP nnnn execute error: expected address");
                 println!("jump addr {addr:#X}");
 
                 self.pc = addr;
+            }
+            Instruction::JmpIndirect => {
+                let indirect_addr: u16 = TryInto::try_into(instr.arg)
+                    .expect("JMP (nnnn) execute error: expected address");
+                println!("jump addr {indirect_addr:#X}");
+
+                let addr = self.fetch_dword(indirect_addr);
+
+                self.pc = addr;
+            }
+            Instruction::Jsr => {
+                let addr: u16 =
+                    TryInto::try_into(instr.arg).expect("JSR execute error: expected address");
+                println!("jump addr {addr:#X}");
+
+                self.jsr(addr);
             }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
@@ -727,8 +743,8 @@ impl Cpu {
     fn brk(&mut self) {
         self.p.write_flag(FlagPosition::IrqDisable, true);
 
-        let high_byte = (self.pc & 0b1111_0000) >> 4;
-        let low_byte = self.pc & 0b0000_1111;
+        let high_byte = (self.pc & 0xFF00) >> 8;
+        let low_byte = self.pc & 0x00FF;
 
         self.address_space
             .write_byte(self.s as usize, high_byte as u8);
@@ -802,5 +818,22 @@ impl Cpu {
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         self.a = result;
+    }
+
+    fn jsr(&mut self, address: u16) {
+        self.pc += 2;
+
+        let high_byte = (self.pc & 0xFF00) >> 8;
+        let low_byte = self.pc & 0x00FF;
+
+        self.address_space
+            .write_byte(self.s as usize, high_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+
+        self.address_space
+            .write_byte(self.s as usize, low_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+
+        self.pc = address;
     }
 }

@@ -97,6 +97,9 @@ lazy_static! {
         m.insert(Instruction::Iny, ArgumentType::Void);
 
         m.insert(Instruction::Jmp, ArgumentType::Addr);
+        m.insert(Instruction::JmpIndirect, ArgumentType::Addr);
+
+        m.insert(Instruction::Jsr, ArgumentType::Addr);
 
         m.insert(Instruction::Nop, ArgumentType::Void);
 

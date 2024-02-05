@@ -103,6 +103,9 @@ pub enum Instruction {
     Iny = 0xC8,
 
     Jmp = 0x4C,
+    JmpIndirect = 0x6C,
+
+    Jsr = 0x20,
 
     Nop = 0xEA,
 }
