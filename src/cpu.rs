@@ -410,6 +410,10 @@ impl Cpu {
                 self.bit(arg0);
                 self.pc += 3;
             }
+            // Software interrupt
+            Instruction::Brk => {
+                self.brk();
+            }
             // Flag reset
             Instruction::Clc => {
                 self.clear_flag(FlagPosition::Carry);
@@ -718,6 +722,30 @@ impl Cpu {
             .write_flag(FlagPosition::Overflow, (operand & 0b0100_0000) >> 6 == 1);
         self.p
             .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn brk(&mut self) {
+        self.p.write_flag(FlagPosition::IrqDisable, true);
+
+        let high_byte = (self.pc & 0b1111_0000) >> 4;
+        let low_byte = self.pc & 0b0000_1111;
+
+        self.address_space
+            .write_byte(self.s as usize, high_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+
+        self.address_space
+            .write_byte(self.s as usize, low_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+
+        self.address_space
+            .write_byte(self.s as usize, Into::<u8>::into(&self.p));
+        self.s = self.s.wrapping_sub(1);
+
+        let irq_vec_high_byte = self.address_space.read_byte(0xFFFF);
+        let irq_vec_low_byte = self.address_space.read_byte(0xFFFE);
+
+        self.pc = dword_from_nibbles(irq_vec_low_byte, irq_vec_high_byte);
     }
 
     fn clear_flag(&mut self, flag: FlagPosition) {

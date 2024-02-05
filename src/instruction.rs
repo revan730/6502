@@ -53,6 +53,8 @@ pub enum Instruction {
     BitZeroPage = 0x24,
     BitAbsolute = 0x2C,
 
+    Brk = 0x00,
+
     Clc = 0x18,
     Cld = 0xD8,
     Cli = 0x58,

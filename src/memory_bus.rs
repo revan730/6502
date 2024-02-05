@@ -14,6 +14,15 @@ const RAM_IO_ROM_START: usize = 0x200;
 const RAM_IO_ROM_END: usize = 0xFFF9;
 const RAM_IO_ROM_SIZE: usize = RAM_IO_ROM_END - RAM_IO_ROM_START + 1;
 
+const NMI_START: usize = 0xFFFA;
+const NMI_END: usize = 0xFFFB;
+
+const RESET_START: usize = 0xFFFC;
+const RESET_END: usize = 0xFFFD;
+
+const IRQ_START: usize = 0xFFFE;
+const IRQ_END: usize = 0xFFFF;
+
 const VECTOR_SIZE: usize = 2;
 
 pub const MEM_SPACE_END: usize = 0xFFFF;
@@ -62,6 +71,7 @@ impl MemoryBus {
         match address {
             ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address],
             RAM_IO_ROM_START..=RAM_IO_ROM_END => self.ram_io_rom[address - RAM_IO_ROM_START],
+            IRQ_START..=IRQ_END => self.irq_vector[address - IRQ_START],
             _ => todo!(),
         }
     }
