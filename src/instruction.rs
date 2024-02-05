@@ -1,3 +1,5 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+
 use crate::error::DecodeError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -12,7 +14,8 @@ pub enum AddressingType {
     YIndexedAbsolute,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(IntoPrimitive, TryFromPrimitive, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum Instruction {
     AdcXIndexedZeroIndirect = 0x61,
     AdcZeroPage = 0x65,
@@ -37,6 +40,15 @@ pub enum Instruction {
     AslAccumulator = 0x0A,
     AslXIndexedZero = 0x16,
     AslXIndexedAbsolute = 0x1E,
+
+    Bcc = 0x90,
+    Bcs = 0xB0,
+    Beq = 0xF0,
+    Bne = 0xD0,
+    Bmi = 0x30,
+    Bpl = 0x10,
+    Bvc = 0x50,
+    Bvs = 0x70,
 
     BitZeroPage = 0x24,
     BitAbsolute = 0x2C,
@@ -91,96 +103,4 @@ pub enum Instruction {
     Jmp = 0x4C,
 
     Nop = 0xEA,
-}
-
-impl Into<u8> for Instruction {
-    fn into(self) -> u8 {
-        self as u8
-    }
-}
-
-impl TryFrom<u8> for Instruction {
-    type Error = DecodeError;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x61 => Ok(Instruction::AdcXIndexedZeroIndirect),
-            0x65 => Ok(Instruction::AdcZeroPage),
-            0x69 => Ok(Instruction::AdcImmediate),
-            0x6D => Ok(Instruction::AdcAbsolute),
-            0x71 => Ok(Instruction::AdcZeroIndirectIndexed),
-            0x75 => Ok(Instruction::AdcXIndexedZero),
-            0x79 => Ok(Instruction::AdcYIndexedAbsolute),
-            0x7D => Ok(Instruction::AdcXIndexedAbsolute),
-
-            0x21 => Ok(Instruction::AndXIndexedZeroIndirect),
-            0x25 => Ok(Instruction::AndZeroPage),
-            0x29 => Ok(Instruction::AndImmediate),
-            0x2D => Ok(Instruction::AndAbsolute),
-            0x31 => Ok(Instruction::AndZeroIndirectIndexed),
-            0x35 => Ok(Instruction::AndXIndexedZero),
-            0x39 => Ok(Instruction::AndYIndexedAbsolute),
-            0x3D => Ok(Instruction::AndXIndexedAbsolute),
-
-            0x0E => Ok(Instruction::AslAbsolute),
-            0x06 => Ok(Instruction::AslZeroPage),
-            0x0A => Ok(Instruction::AslAccumulator),
-            0x16 => Ok(Instruction::AslXIndexedZero),
-            0x1E => Ok(Instruction::AslXIndexedAbsolute),
-
-            0x24 => Ok(Instruction::BitZeroPage),
-            0x2C => Ok(Instruction::BitAbsolute),
-
-            0x18 => Ok(Instruction::Clc),
-            0xD8 => Ok(Instruction::Cld),
-            0x58 => Ok(Instruction::Cli),
-            0xB8 => Ok(Instruction::Clv),
-
-            0xC1 => Ok(Instruction::CmpXIndexedZeroIndirect),
-            0xC5 => Ok(Instruction::CmpZeroPage),
-            0xC9 => Ok(Instruction::CmpImmediate),
-            0xCD => Ok(Instruction::CmpAbsolute),
-            0xD1 => Ok(Instruction::CmpZeroIndirectIndexed),
-            0xD5 => Ok(Instruction::CmpXIndexedZero),
-            0xD9 => Ok(Instruction::CmpYIndexedAbsolute),
-            0xDD => Ok(Instruction::CmpXIndexedAbsolute),
-
-            0xE4 => Ok(Instruction::CpxZeroPage),
-            0xE0 => Ok(Instruction::CpxImmediate),
-            0xEC => Ok(Instruction::CpxAbsolute),
-
-            0xC4 => Ok(Instruction::CpyZeroPage),
-            0xC0 => Ok(Instruction::CpyImmediate),
-            0xCC => Ok(Instruction::CpyAbsolute),
-
-            0xCE => Ok(Instruction::DecAbsolute),
-            0xC6 => Ok(Instruction::DecZeroPage),
-            0xD6 => Ok(Instruction::DecXIndexedZero),
-            0xDE => Ok(Instruction::DecXIndexedAbsolute),
-
-            0xCA => Ok(Instruction::Dex),
-            0x88 => Ok(Instruction::Dey),
-
-            0xEE => Ok(Instruction::IncAbsolute),
-            0xE6 => Ok(Instruction::IncZeroPage),
-            0xF6 => Ok(Instruction::IncXIndexedZero),
-            0xFE => Ok(Instruction::IncXIndexedAbsolute),
-
-            0x41 => Ok(Instruction::EorXIndexedZeroIndirect),
-            0x45 => Ok(Instruction::EorZeroPage),
-            0x49 => Ok(Instruction::EorImmediate),
-            0x4D => Ok(Instruction::EorAbsolute),
-            0x51 => Ok(Instruction::EorZeroIndirectIndexed),
-            0x55 => Ok(Instruction::EorXIndexedZero),
-            0x59 => Ok(Instruction::EorYIndexedAbsolute),
-            0x5D => Ok(Instruction::EorXIndexedAbsolute),
-
-            0xE8 => Ok(Instruction::Inx),
-            0xC8 => Ok(Instruction::Iny),
-
-            0x4C => Ok(Instruction::Jmp),
-            0xEA => Ok(Instruction::Nop),
-            _ => Err(DecodeError::UnknownOpcode(format!("{value:#X}"))),
-        }
-    }
 }

@@ -35,6 +35,15 @@ lazy_static! {
         m.insert(Instruction::AslXIndexedZero, ArgumentType::Byte);
         m.insert(Instruction::AslXIndexedAbsolute, ArgumentType::Addr);
 
+        m.insert(Instruction::Bcc, ArgumentType::Byte);
+        m.insert(Instruction::Bcs, ArgumentType::Byte);
+        m.insert(Instruction::Beq, ArgumentType::Byte);
+        m.insert(Instruction::Bne, ArgumentType::Byte);
+        m.insert(Instruction::Bmi, ArgumentType::Byte);
+        m.insert(Instruction::Bpl, ArgumentType::Byte);
+        m.insert(Instruction::Bvc, ArgumentType::Byte);
+        m.insert(Instruction::Bvs, ArgumentType::Byte);
+
         m.insert(Instruction::BitZeroPage, ArgumentType::Byte);
         m.insert(Instruction::BitAbsolute, ArgumentType::Addr);
 

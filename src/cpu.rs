@@ -85,7 +85,7 @@ struct FetchOperandResult(u8, Option<u16>);
 impl Cpu {
     pub fn new(mem_bus: MemoryBus) -> Cpu {
         Cpu {
-            address_space: mem_bus, // TODO: Init memory bus here
+            address_space: mem_bus,
             a: 1,
             x: 0,
             y: 0,
@@ -118,7 +118,8 @@ impl Cpu {
     }
 
     fn decode(&self, value: u8) -> DecodedInstruction {
-        let opcode = Instruction::try_from(value).expect("Failed to decode opcode");
+        let opcode = Instruction::try_from(value)
+            .unwrap_or_else(|_| panic!("Failed to decode opcode {value:#X}"));
         let argument_kind = INSTRUCTIONS_ADDRESSING
             .get(&opcode)
             .unwrap_or_else(|| panic!("Unimplemented opcode {opcode:?}"));
@@ -336,6 +337,63 @@ impl Cpu {
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
                 self.asl(AslOperand::Value(arg0), address);
                 self.pc += 3;
+            }
+            // Branch
+            Instruction::Bcc => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Carry, false);
+            }
+            Instruction::Bcs => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Carry, true);
+            }
+            Instruction::Beq => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Zero, true);
+            }
+            Instruction::Bne => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Zero, false);
+            }
+            Instruction::Bmi => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Negative, true);
+            }
+            Instruction::Bpl => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Negative, false);
+            }
+            Instruction::Bvc => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Overflow, false);
+            }
+            Instruction::Bvs => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+
+                self.pc += 2;
+                self.branch(arg0 as i8, FlagPosition::Overflow, true);
             }
             // BIT
             Instruction::BitZeroPage => {
@@ -641,6 +699,14 @@ impl Cpu {
                 operand_address.expect("ASL: expected address") as usize,
                 result,
             ),
+        }
+    }
+
+    fn branch(&mut self, offset: i8, flag: FlagPosition, set: bool) {
+        // PC is already on next command after branch here
+
+        if self.p.read_flag(flag) == set as u8 {
+            self.pc = self.pc.wrapping_add(offset as i16 as u16);
         }
     }
 
