@@ -71,6 +71,15 @@ pub enum Instruction {
     Dex = 0xCA,
     Dey = 0x88,
 
+    EorXIndexedZeroIndirect = 0x41,
+    EorZeroPage = 0x45,
+    EorImmediate = 0x49,
+    EorAbsolute = 0x4D,
+    EorZeroIndirectIndexed = 0x51,
+    EorXIndexedZero = 0x55,
+    EorYIndexedAbsolute = 0x59,
+    EorXIndexedAbsolute = 0x5D,
+
     IncZeroPage = 0xE6,
     IncAbsolute = 0xEE,
     IncXIndexedZero = 0xF6,
@@ -156,6 +165,15 @@ impl TryFrom<u8> for Instruction {
             0xE6 => Ok(Instruction::IncZeroPage),
             0xF6 => Ok(Instruction::IncXIndexedZero),
             0xFE => Ok(Instruction::IncXIndexedAbsolute),
+
+            0x41 => Ok(Instruction::EorXIndexedZeroIndirect),
+            0x45 => Ok(Instruction::EorZeroPage),
+            0x49 => Ok(Instruction::EorImmediate),
+            0x4D => Ok(Instruction::EorAbsolute),
+            0x51 => Ok(Instruction::EorZeroIndirectIndexed),
+            0x55 => Ok(Instruction::EorXIndexedZero),
+            0x59 => Ok(Instruction::EorYIndexedAbsolute),
+            0x5D => Ok(Instruction::EorXIndexedAbsolute),
 
             0xE8 => Ok(Instruction::Inx),
             0xC8 => Ok(Instruction::Iny),

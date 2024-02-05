@@ -494,6 +494,55 @@ impl Cpu {
                 self.inc_dec(false, IncDecOperand::Y, None);
                 self.pc += 1;
             }
+            // EOR
+            Instruction::EorXIndexedZeroIndirect => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.eor(arg0);
+                self.pc += 2;
+            }
+            Instruction::EorZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.eor(arg0);
+                self.pc += 2;
+            }
+            Instruction::EorImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.eor(arg0);
+                self.pc += 2;
+            }
+            Instruction::EorAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.eor(arg0);
+                self.pc += 3;
+            }
+            Instruction::EorZeroIndirectIndexed => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.eor(arg0);
+                self.pc += 2;
+            }
+            Instruction::EorXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.eor(arg0);
+                self.pc += 2;
+            }
+            Instruction::EorYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.eor(arg0);
+                self.pc += 3;
+            }
+            Instruction::EorXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.eor(arg0);
+                self.pc += 3;
+            }
             // INC
             Instruction::IncAbsolute => {
                 let FetchOperandResult(arg0, address) =
@@ -649,5 +698,15 @@ impl Cpu {
                 result,
             ),
         }
+    }
+
+    fn eor(&mut self, operand: u8) {
+        let result = self.a ^ operand;
+
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+
+        self.a = result;
     }
 }
