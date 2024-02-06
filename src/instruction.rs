@@ -160,4 +160,8 @@ pub enum Instruction {
     RorAccumulator = 0x6A,
     RorXIndexedZero = 0x76,
     RorXIndexedAbsolute = 0x7E,
+
+    Rti = 0x40,
+
+    Rts = 0x60,
 }

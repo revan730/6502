@@ -156,6 +156,10 @@ lazy_static! {
         m.insert(Instruction::RorXIndexedZero, ArgumentType::Byte);
         m.insert(Instruction::RorXIndexedAbsolute, ArgumentType::Addr);
 
+        m.insert(Instruction::Rti, ArgumentType::Void);
+
+        m.insert(Instruction::Rts, ArgumentType::Void);
+
         m
     };
 }

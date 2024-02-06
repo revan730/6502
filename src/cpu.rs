@@ -951,6 +951,14 @@ impl Cpu {
                 self.ror(ShiftOperand::Value(arg0), address);
                 self.pc += 3;
             }
+            // RTI
+            Instruction::Rti => {
+                self.rti();
+            }
+            // RTS
+            Instruction::Rts => {
+                self.rts();
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -1248,5 +1256,14 @@ impl Cpu {
                 result,
             ),
         }
+    }
+
+    fn rti(&mut self) {
+        self.plp();
+        self.pc = self.pop_dword();
+    }
+
+    fn rts(&mut self) {
+        self.pc = self.pop_dword() + 1;
     }
 }
