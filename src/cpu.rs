@@ -822,6 +822,55 @@ impl Cpu {
                 self.lsr(AslLsrOperand::Value(arg0), address);
                 self.pc += 2;
             }
+            // ORA
+            Instruction::OraXIndexedZeroIndirect => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.ora(arg0);
+                self.pc += 2;
+            }
+            Instruction::OraZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.ora(arg0);
+                self.pc += 2;
+            }
+            Instruction::OraImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.ora(arg0);
+                self.pc += 2;
+            }
+            Instruction::OraAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.ora(arg0);
+                self.pc += 3;
+            }
+            Instruction::OraZeroIndirectIndexed => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.ora(arg0);
+                self.pc += 2;
+            }
+            Instruction::OraXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.ora(arg0);
+                self.pc += 2;
+            }
+            Instruction::OraYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.ora(arg0);
+                self.pc += 3;
+            }
+            Instruction::OraXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.ora(arg0);
+                self.pc += 3;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -1030,5 +1079,15 @@ impl Cpu {
                 result,
             ),
         }
+    }
+
+    fn ora(&mut self, operand: u8) {
+        let result = self.a | operand;
+
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+
+        self.a = result;
     }
 }

@@ -134,4 +134,13 @@ pub enum Instruction {
     LsrAccumulator = 0x4A,
     LsrXIndexedZero = 0x56,
     LsrXIndexedAbsolute = 0x5E,
+
+    OraXIndexedZeroIndirect = 0x01,
+    OraZeroPage = 0x05,
+    OraImmediate = 0x09,
+    OraAbsolute = 0x0D,
+    OraZeroIndirectIndexed = 0x11,
+    OraXIndexedZero = 0x15,
+    OraYIndexedAbsolute = 0x19,
+    OraXIndexedAbsolute = 0x1D,
 }
