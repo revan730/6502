@@ -144,6 +144,18 @@ lazy_static! {
         m.insert(Instruction::Pla, ArgumentType::Void);
         m.insert(Instruction::Plp, ArgumentType::Void);
 
+        m.insert(Instruction::RolAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::RolZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::RolAccumulator, ArgumentType::Void);
+        m.insert(Instruction::RolXIndexedZero, ArgumentType::Byte);
+        m.insert(Instruction::RolXIndexedAbsolute, ArgumentType::Addr);
+
+        m.insert(Instruction::RorAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::RorZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::RorAccumulator, ArgumentType::Void);
+        m.insert(Instruction::RorXIndexedZero, ArgumentType::Byte);
+        m.insert(Instruction::RorXIndexedAbsolute, ArgumentType::Addr);
+
         m
     };
 }

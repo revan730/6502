@@ -148,4 +148,16 @@ pub enum Instruction {
     Php = 0x08,
     Pla = 0x68,
     Plp = 0x28,
+
+    RolAbsolute = 0x2E,
+    RolZeroPage = 0x26,
+    RolAccumulator = 0x2A,
+    RolXIndexedZero = 0x36,
+    RolXIndexedAbsolute = 0x3E,
+
+    RorAbsolute = 0x6E,
+    RorZeroPage = 0x66,
+    RorAccumulator = 0x6A,
+    RorXIndexedZero = 0x76,
+    RorXIndexedAbsolute = 0x7E,
 }

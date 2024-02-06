@@ -37,7 +37,7 @@ enum Argument {
     Addr(u16),
 }
 
-enum AslLsrOperand {
+enum ShiftOperand {
     A,
     Value(u8),
 }
@@ -328,29 +328,29 @@ impl Cpu {
             Instruction::AslAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::Absolute);
-                self.asl(AslLsrOperand::Value(arg0), address);
+                self.asl(ShiftOperand::Value(arg0), address);
                 self.pc += 3;
             }
             Instruction::AslZeroPage => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
-                self.asl(AslLsrOperand::Value(arg0), address);
+                self.asl(ShiftOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::AslAccumulator => {
-                self.asl(AslLsrOperand::A, None);
+                self.asl(ShiftOperand::A, None);
                 self.pc += 1;
             }
             Instruction::AslXIndexedZero => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedZero);
-                self.asl(AslLsrOperand::Value(arg0), address);
+                self.asl(ShiftOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::AslXIndexedAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
-                self.asl(AslLsrOperand::Value(arg0), address);
+                self.asl(ShiftOperand::Value(arg0), address);
                 self.pc += 3;
             }
             // Branch
@@ -796,30 +796,30 @@ impl Cpu {
             Instruction::LsrAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::Absolute);
-                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.lsr(ShiftOperand::Value(arg0), address);
 
                 self.pc += 3;
             }
             Instruction::LsrZeroPage => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
-                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.lsr(ShiftOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::LsrAccumulator => {
-                self.lsr(AslLsrOperand::A, None);
+                self.lsr(ShiftOperand::A, None);
                 self.pc += 1;
             }
             Instruction::LsrXIndexedAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
-                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.lsr(ShiftOperand::Value(arg0), address);
                 self.pc += 3;
             }
             Instruction::LsrXIndexedZero => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedZero);
-                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.lsr(ShiftOperand::Value(arg0), address);
                 self.pc += 2;
             }
             // ORA
@@ -891,6 +891,66 @@ impl Cpu {
                 self.plp();
                 self.pc += 1;
             }
+            // ROL
+            Instruction::RolAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.rol(ShiftOperand::Value(arg0), address);
+
+                self.pc += 3;
+            }
+            Instruction::RolZeroPage => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.rol(ShiftOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::RolAccumulator => {
+                self.rol(ShiftOperand::A, None);
+                self.pc += 1;
+            }
+            Instruction::RolXIndexedZero => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.rol(ShiftOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::RolXIndexedAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.rol(ShiftOperand::Value(arg0), address);
+                self.pc += 3;
+            }
+            // ROR
+            Instruction::RorAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.ror(ShiftOperand::Value(arg0), address);
+
+                self.pc += 3;
+            }
+            Instruction::RorZeroPage => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.ror(ShiftOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::RorAccumulator => {
+                self.ror(ShiftOperand::A, None);
+                self.pc += 1;
+            }
+            Instruction::RorXIndexedZero => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.ror(ShiftOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::RorXIndexedAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.ror(ShiftOperand::Value(arg0), address);
+                self.pc += 3;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -923,10 +983,10 @@ impl Cpu {
         self.a = result;
     }
 
-    fn asl(&mut self, operand: AslLsrOperand, operand_address: Option<u16>) {
+    fn asl(&mut self, operand: ShiftOperand, operand_address: Option<u16>) {
         let operand_value: u8 = match operand {
-            AslLsrOperand::A => self.a,
-            AslLsrOperand::Value(v) => v,
+            ShiftOperand::A => self.a,
+            ShiftOperand::Value(v) => v,
         };
 
         let result = operand_value.wrapping_shl(1);
@@ -938,8 +998,8 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Zero, result == 0);
 
         match operand {
-            AslLsrOperand::A => self.a = result,
-            AslLsrOperand::Value(_) => self.address_space.write_byte(
+            ShiftOperand::A => self.a = result,
+            ShiftOperand::Value(_) => self.address_space.write_byte(
                 operand_address.expect("ASL: expected address") as usize,
                 result,
             ),
@@ -1066,10 +1126,10 @@ impl Cpu {
             .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
     }
 
-    fn lsr(&mut self, operand: AslLsrOperand, operand_address: Option<u16>) {
+    fn lsr(&mut self, operand: ShiftOperand, operand_address: Option<u16>) {
         let operand_value: u8 = match operand {
-            AslLsrOperand::A => self.a,
-            AslLsrOperand::Value(v) => v,
+            ShiftOperand::A => self.a,
+            ShiftOperand::Value(v) => v,
         };
 
         let result = operand_value >> 1;
@@ -1080,8 +1140,8 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Zero, result == 0);
 
         match operand {
-            AslLsrOperand::A => self.a = result,
-            AslLsrOperand::Value(_) => self.address_space.write_byte(
+            ShiftOperand::A => self.a = result,
+            ShiftOperand::Value(_) => self.address_space.write_byte(
                 operand_address.expect("LSR: expected address") as usize,
                 result,
             ),
@@ -1140,5 +1200,53 @@ impl Cpu {
 
     fn plp(&mut self) {
         self.p = FlagsRegister::new(self.pop());
+    }
+
+    fn rol(&mut self, operand: ShiftOperand, operand_address: Option<u16>) {
+        let operand_value: u8 = match operand {
+            ShiftOperand::A => self.a,
+            ShiftOperand::Value(v) => v,
+        };
+
+        let carry = self.p.read_flag(FlagPosition::Carry) as u8;
+        let result = (operand_value << 1) | carry;
+
+        self.p
+            .write_flag(FlagPosition::Carry, (operand_value & 0b1000_0000) >> 7 == 1);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+
+        match operand {
+            ShiftOperand::A => self.a = result,
+            ShiftOperand::Value(_) => self.address_space.write_byte(
+                operand_address.expect("ROL: expected address") as usize,
+                result,
+            ),
+        }
+    }
+
+    fn ror(&mut self, operand: ShiftOperand, operand_address: Option<u16>) {
+        let operand_value: u8 = match operand {
+            ShiftOperand::A => self.a,
+            ShiftOperand::Value(v) => v,
+        };
+
+        let carry = self.p.read_flag(FlagPosition::Carry) as u8;
+        let result = (operand_value >> 1) | (carry << 7);
+
+        self.p
+            .write_flag(FlagPosition::Carry, (operand_value & 0b0000_0001) == 1);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+
+        match operand {
+            ShiftOperand::A => self.a = result,
+            ShiftOperand::Value(_) => self.address_space.write_byte(
+                operand_address.expect("ROR: expected address") as usize,
+                result,
+            ),
+        }
     }
 }
