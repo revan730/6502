@@ -210,6 +210,7 @@ impl Cpu {
     }
 
     fn execute(&mut self, instr: DecodedInstruction) {
+        println!("Executing opcode {:#X}", instr.int as u8);
         match instr.int {
             Instruction::AdcXIndexedZeroIndirect => {
                 let FetchOperandResult(operand, _) =
@@ -666,6 +667,55 @@ impl Cpu {
 
                 self.jsr(addr);
             }
+            // LDA
+            Instruction::LdaXIndexedZeroIndirect => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.lda(arg0);
+                self.pc += 2;
+            }
+            Instruction::LdaZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.lda(arg0);
+                self.pc += 2;
+            }
+            Instruction::LdaImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.lda(arg0);
+                self.pc += 2;
+            }
+            Instruction::LdaAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.lda(arg0);
+                self.pc += 3;
+            }
+            Instruction::LdaZeroIndirectIndexed => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.lda(arg0);
+                self.pc += 2;
+            }
+            Instruction::LdaXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.lda(arg0);
+                self.pc += 2;
+            }
+            Instruction::LdaYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.lda(arg0);
+                self.pc += 3;
+            }
+            Instruction::LdaXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.lda(arg0);
+                self.pc += 3;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -835,5 +885,13 @@ impl Cpu {
         self.s = self.s.wrapping_sub(1);
 
         self.pc = address;
+    }
+
+    fn lda(&mut self, operand: u8) {
+        self.a = operand;
+
+        self.p.write_flag(FlagPosition::Zero, self.a == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.a & 0b1000_0000) >> 7 == 1);
     }
 }

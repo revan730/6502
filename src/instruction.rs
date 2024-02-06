@@ -108,4 +108,13 @@ pub enum Instruction {
     Jsr = 0x20,
 
     Nop = 0xEA,
+
+    LdaXIndexedZeroIndirect = 0xA1,
+    LdaZeroPage = 0xA5,
+    LdaImmediate = 0xA9,
+    LdaAbsolute = 0xAD,
+    LdaZeroIndirectIndexed = 0xB1,
+    LdaXIndexedZero = 0xB5,
+    LdaYIndexedAbsolute = 0xB9,
+    LdaXIndexedAbsolute = 0xBD,
 }
