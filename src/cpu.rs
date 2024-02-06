@@ -37,7 +37,7 @@ enum Argument {
     Addr(u16),
 }
 
-enum AslOperand {
+enum AslLsrOperand {
     A,
     Value(u8),
 }
@@ -328,29 +328,29 @@ impl Cpu {
             Instruction::AslAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::Absolute);
-                self.asl(AslOperand::Value(arg0), address);
+                self.asl(AslLsrOperand::Value(arg0), address);
                 self.pc += 3;
             }
             Instruction::AslZeroPage => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
-                self.asl(AslOperand::Value(arg0), address);
+                self.asl(AslLsrOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::AslAccumulator => {
-                self.asl(AslOperand::A, None);
+                self.asl(AslLsrOperand::A, None);
                 self.pc += 1;
             }
             Instruction::AslXIndexedZero => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedZero);
-                self.asl(AslOperand::Value(arg0), address);
+                self.asl(AslLsrOperand::Value(arg0), address);
                 self.pc += 2;
             }
             Instruction::AslXIndexedAbsolute => {
                 let FetchOperandResult(arg0, address) =
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
-                self.asl(AslOperand::Value(arg0), address);
+                self.asl(AslLsrOperand::Value(arg0), address);
                 self.pc += 3;
             }
             // Branch
@@ -792,6 +792,36 @@ impl Cpu {
                 self.ld(LdOperand::Y, arg0);
                 self.pc += 2;
             }
+            // LSR
+            Instruction::LsrAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.lsr(AslLsrOperand::Value(arg0), address);
+
+                self.pc += 3;
+            }
+            Instruction::LsrZeroPage => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.pc += 2;
+            }
+            Instruction::LsrAccumulator => {
+                self.lsr(AslLsrOperand::A, None);
+                self.pc += 1;
+            }
+            Instruction::LsrXIndexedAbsolute => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.pc += 3;
+            }
+            Instruction::LsrXIndexedZero => {
+                let FetchOperandResult(arg0, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.lsr(AslLsrOperand::Value(arg0), address);
+                self.pc += 2;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -824,14 +854,13 @@ impl Cpu {
         self.a = result;
     }
 
-    fn asl(&mut self, operand: AslOperand, operand_address: Option<u16>) {
+    fn asl(&mut self, operand: AslLsrOperand, operand_address: Option<u16>) {
         let operand_value: u8 = match operand {
-            AslOperand::A => self.a,
-            AslOperand::Value(v) => v,
+            AslLsrOperand::A => self.a,
+            AslLsrOperand::Value(v) => v,
         };
 
         let result = operand_value.wrapping_shl(1);
-        println!("operand_value {operand_value:#X} result {result:#X}");
 
         self.p
             .write_flag(FlagPosition::Carry, (operand_value & 0b1000_0000) >> 7 == 1);
@@ -840,8 +869,8 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Zero, result == 0);
 
         match operand {
-            AslOperand::A => self.a = result,
-            AslOperand::Value(_) => self.address_space.write_byte(
+            AslLsrOperand::A => self.a = result,
+            AslLsrOperand::Value(_) => self.address_space.write_byte(
                 operand_address.expect("ASL: expected address") as usize,
                 result,
             ),
@@ -979,5 +1008,27 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Zero, operand == 0);
         self.p
             .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn lsr(&mut self, operand: AslLsrOperand, operand_address: Option<u16>) {
+        let operand_value: u8 = match operand {
+            AslLsrOperand::A => self.a,
+            AslLsrOperand::Value(v) => v,
+        };
+
+        let result = operand_value >> 1;
+
+        self.p
+            .write_flag(FlagPosition::Carry, (operand_value & 0b0000_0001) == 1);
+        self.p.write_flag(FlagPosition::Negative, false);
+        self.p.write_flag(FlagPosition::Zero, result == 0);
+
+        match operand {
+            AslLsrOperand::A => self.a = result,
+            AslLsrOperand::Value(_) => self.address_space.write_byte(
+                operand_address.expect("LSR: expected address") as usize,
+                result,
+            ),
+        }
     }
 }

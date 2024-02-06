@@ -124,6 +124,12 @@ lazy_static! {
         m.insert(Instruction::LdyXIndexedAbsolute, ArgumentType::Addr);
         m.insert(Instruction::LdyXIndexedZero, ArgumentType::Byte);
 
+        m.insert(Instruction::LsrAbsolute, ArgumentType::Addr);
+        m.insert(Instruction::LsrZeroPage, ArgumentType::Byte);
+        m.insert(Instruction::LsrAccumulator, ArgumentType::Void);
+        m.insert(Instruction::LsrXIndexedZero, ArgumentType::Byte);
+        m.insert(Instruction::LsrXIndexedAbsolute, ArgumentType::Addr);
+
         m
     };
 }

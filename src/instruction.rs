@@ -128,4 +128,10 @@ pub enum Instruction {
     LdyAbsolute = 0xAC,
     LdyXIndexedAbsolute = 0xBC,
     LdyXIndexedZero = 0xB4,
+
+    LsrAbsolute = 0x4E,
+    LsrZeroPage = 0x46,
+    LsrAccumulator = 0x4A,
+    LsrXIndexedZero = 0x56,
+    LsrXIndexedAbsolute = 0x5E,
 }
