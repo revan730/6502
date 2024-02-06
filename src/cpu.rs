@@ -761,6 +761,37 @@ impl Cpu {
                 self.ld(LdOperand::X, arg0);
                 self.pc += 2;
             }
+            // LDY
+            Instruction::LdyZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.ld(LdOperand::Y, arg0);
+                self.pc += 2;
+            }
+            Instruction::LdyImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.ld(LdOperand::Y, arg0);
+                self.pc += 2;
+            }
+            Instruction::LdyAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.ld(LdOperand::Y, arg0);
+                self.pc += 3;
+            }
+            Instruction::LdyXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.ld(LdOperand::Y, arg0);
+                self.pc += 3;
+            }
+            Instruction::LdyXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.ld(LdOperand::Y, arg0);
+                self.pc += 2;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }

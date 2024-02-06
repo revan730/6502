@@ -1,7 +1,5 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::error::DecodeError;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AddressingType {
     XIndexedZeroIndirect,
@@ -124,4 +122,10 @@ pub enum Instruction {
     LdxAbsolute = 0xAE,
     LdxYIndexedAbsolute = 0xBE,
     LdxYIndexedZero = 0xB6,
+
+    LdyZeroPage = 0xA4,
+    LdyImmediate = 0xA0,
+    LdyAbsolute = 0xAC,
+    LdyXIndexedAbsolute = 0xBC,
+    LdyXIndexedZero = 0xB4,
 }
