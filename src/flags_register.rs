@@ -23,13 +23,13 @@ impl Into<u8> for &FlagsRegister {
 
 impl Default for FlagsRegister {
     fn default() -> Self {
-        Self::new()
+        Self::new(0)
     }
 }
 
 impl FlagsRegister {
-    pub fn new() -> FlagsRegister {
-        FlagsRegister(0)
+    pub fn new(bits: u8) -> FlagsRegister {
+        FlagsRegister(bits)
     }
 
     pub fn write_flag(&mut self, flag: FlagPosition, set: bool) {

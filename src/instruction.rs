@@ -143,4 +143,9 @@ pub enum Instruction {
     OraXIndexedZero = 0x15,
     OraYIndexedAbsolute = 0x19,
     OraXIndexedAbsolute = 0x1D,
+
+    Pha = 0x48,
+    Php = 0x08,
+    Pla = 0x68,
+    Plp = 0x28,
 }

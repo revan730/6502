@@ -871,6 +871,26 @@ impl Cpu {
                 self.ora(arg0);
                 self.pc += 3;
             }
+            // PHA
+            Instruction::Pha => {
+                self.push(self.a);
+                self.pc += 1;
+            }
+            // PHP
+            Instruction::Php => {
+                self.push(Into::<u8>::into(&self.p));
+                self.pc += 1;
+            }
+            // PLA
+            Instruction::Pla => {
+                self.pla();
+                self.pc += 1;
+            }
+            // PLP
+            Instruction::Plp => {
+                self.plp();
+                self.pc += 1;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -946,21 +966,8 @@ impl Cpu {
 
     fn brk(&mut self) {
         self.p.write_flag(FlagPosition::IrqDisable, true);
-
-        let high_byte = (self.pc & 0xFF00) >> 8;
-        let low_byte = self.pc & 0x00FF;
-
-        self.address_space
-            .write_byte(self.s as usize, high_byte as u8);
-        self.s = self.s.wrapping_sub(1);
-
-        self.address_space
-            .write_byte(self.s as usize, low_byte as u8);
-        self.s = self.s.wrapping_sub(1);
-
-        self.address_space
-            .write_byte(self.s as usize, Into::<u8>::into(&self.p));
-        self.s = self.s.wrapping_sub(1);
+        self.push_dword(self.pc);
+        self.push(Into::<u8>::into(&self.p));
 
         let irq_vec_high_byte = self.address_space.read_byte(0xFFFF);
         let irq_vec_low_byte = self.address_space.read_byte(0xFFFE);
@@ -1089,5 +1096,49 @@ impl Cpu {
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
         self.a = result;
+    }
+
+    fn push(&mut self, value: u8) {
+        self.address_space.write_byte(self.s as usize, value);
+        self.s = self.s.wrapping_sub(1);
+    }
+
+    fn push_dword(&mut self, value: u16) {
+        let high_byte = (value & 0xFF00) >> 8;
+        let low_byte = value & 0x00FF;
+
+        self.address_space
+            .write_byte(self.s as usize, high_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+
+        self.address_space
+            .write_byte(self.s as usize, low_byte as u8);
+        self.s = self.s.wrapping_sub(1);
+    }
+
+    fn pop(&mut self) -> u8 {
+        self.s = self.s.wrapping_add(1);
+        self.address_space.read_byte(self.s as usize)
+    }
+
+    fn pop_dword(&mut self) -> u16 {
+        self.s = self.s.wrapping_add(1);
+        let low_byte = self.address_space.read_byte(self.s as usize);
+
+        self.s = self.s.wrapping_add(1);
+        let high_byte = self.address_space.read_byte(self.s as usize);
+
+        dword_from_nibbles(low_byte, high_byte)
+    }
+
+    fn pla(&mut self) {
+        self.a = self.pop();
+        self.p.write_flag(FlagPosition::Zero, self.a == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.a & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn plp(&mut self) {
+        self.p = FlagsRegister::new(self.pop());
     }
 }

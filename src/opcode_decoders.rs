@@ -139,6 +139,11 @@ lazy_static! {
         m.insert(Instruction::OraXIndexedAbsolute, ArgumentType::Addr);
         m.insert(Instruction::OraYIndexedAbsolute, ArgumentType::Addr);
 
+        m.insert(Instruction::Pha, ArgumentType::Void);
+        m.insert(Instruction::Php, ArgumentType::Void);
+        m.insert(Instruction::Pla, ArgumentType::Void);
+        m.insert(Instruction::Plp, ArgumentType::Void);
+
         m
     };
 }
