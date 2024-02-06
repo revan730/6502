@@ -48,6 +48,12 @@ enum IncDecOperand {
     Value(u8),
 }
 
+enum LdOperand {
+    A,
+    X,
+    Y,
+}
+
 impl TryInto<u8> for Argument {
     type Error = DecodeError;
 
@@ -189,6 +195,14 @@ impl Cpu {
                 let x_indexed_ptr = u8::wrapping_add(self.x, arg0) as u16;
 
                 FetchOperandResult(self.fetch(x_indexed_ptr), Some(x_indexed_ptr))
+            }
+            AddressingType::YIndexedZero => {
+                let arg0: u8 = TryInto::try_into(instr.arg)
+                    .expect("Y indexed zero page operand fetch error: expected byte");
+
+                let y_indexed_ptr = u8::wrapping_add(self.y, arg0) as u16;
+
+                FetchOperandResult(self.fetch(y_indexed_ptr), Some(y_indexed_ptr))
             }
             AddressingType::XIndexedAbsolute => {
                 let address: u16 = TryInto::try_into(instr.arg)
@@ -671,50 +685,81 @@ impl Cpu {
             Instruction::LdaXIndexedZeroIndirect => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 2;
             }
             Instruction::LdaZeroPage => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::ZeroPage);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 2;
             }
             Instruction::LdaImmediate => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::Immediate);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 2;
             }
             Instruction::LdaAbsolute => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::Absolute);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 3;
             }
             Instruction::LdaZeroIndirectIndexed => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 2;
             }
             Instruction::LdaXIndexedZero => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::XIndexedZero);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 2;
             }
             Instruction::LdaYIndexedAbsolute => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 3;
             }
             Instruction::LdaXIndexedAbsolute => {
                 let FetchOperandResult(arg0, _) =
                     self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
-                self.lda(arg0);
+                self.ld(LdOperand::A, arg0);
                 self.pc += 3;
+            }
+            // LDX
+            Instruction::LdxZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.ld(LdOperand::X, arg0);
+                self.pc += 2;
+            }
+            Instruction::LdxImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.ld(LdOperand::X, arg0);
+                self.pc += 2;
+            }
+            Instruction::LdxAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.ld(LdOperand::X, arg0);
+                self.pc += 3;
+            }
+            Instruction::LdxYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.ld(LdOperand::X, arg0);
+                self.pc += 3;
+            }
+            Instruction::LdxYIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedZero);
+                self.ld(LdOperand::X, arg0);
+                self.pc += 2;
             }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
@@ -887,11 +932,21 @@ impl Cpu {
         self.pc = address;
     }
 
-    fn lda(&mut self, operand: u8) {
-        self.a = operand;
+    fn ld(&mut self, register: LdOperand, operand: u8) {
+        match register {
+            LdOperand::A => {
+                self.a = operand;
+            }
+            LdOperand::X => {
+                self.x = operand;
+            }
+            LdOperand::Y => {
+                self.y = operand;
+            }
+        }
 
-        self.p.write_flag(FlagPosition::Zero, self.a == 0);
+        self.p.write_flag(FlagPosition::Zero, operand == 0);
         self.p
-            .write_flag(FlagPosition::Negative, (self.a & 0b1000_0000) >> 7 == 1);
+            .write_flag(FlagPosition::Negative, (operand & 0b1000_0000) >> 7 == 1);
     }
 }

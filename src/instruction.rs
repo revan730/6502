@@ -10,6 +10,7 @@ pub enum AddressingType {
     Absolute,
     ZeroIndirectIndexed,
     XIndexedZero,
+    YIndexedZero,
     XIndexedAbsolute,
     YIndexedAbsolute,
 }
@@ -117,4 +118,10 @@ pub enum Instruction {
     LdaXIndexedZero = 0xB5,
     LdaYIndexedAbsolute = 0xB9,
     LdaXIndexedAbsolute = 0xBD,
+
+    LdxZeroPage = 0xA6,
+    LdxImmediate = 0xA2,
+    LdxAbsolute = 0xAE,
+    LdxYIndexedAbsolute = 0xBE,
+    LdxYIndexedZero = 0xB6,
 }
