@@ -1166,8 +1166,7 @@ impl Cpu {
                 r -= 100;
             }
 
-            self.p.write_flag(FlagPosition::Carry, carry);
-            self.p.write_flag(FlagPosition::Overflow, false);
+            self.p.write_flag(FlagPosition::Carry, carry_new);
 
             u8_to_bcd(r as u8) as u16
         };
@@ -1491,7 +1490,6 @@ impl Cpu {
             }
 
             self.p.write_flag(FlagPosition::Carry, carry);
-            self.p.write_flag(FlagPosition::Overflow, false);
 
             u8_to_bcd(r as u8) as u16
         };
@@ -1568,7 +1566,7 @@ mod test {
     use crate::{cpu::Cpu, flags_register::FlagPosition, memory_bus::MemoryBus};
 
     #[test]
-    fn test_adc() {
+    fn adc() {
         let memory = MemoryBus::new();
         let mut cpu = Cpu::new(memory);
 
@@ -1596,11 +1594,36 @@ mod test {
         assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
 
-        // TODO: Decimal mode tests
+        cpu.p.write_flag(FlagPosition::Carry, false);
+        cpu.p.write_flag(FlagPosition::DecimalMode, true);
+
+        cpu.a = 0x01;
+        cpu.adc(0x01);
+        assert_eq!(cpu.a, 0x02);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x79;
+        cpu.adc(0x01);
+        assert_eq!(cpu.a, 0x80);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x79;
+        cpu.adc(0x81);
+        assert_eq!(cpu.a, 0x60); // 79 + 81 = 160, subtract 100, result is 60
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false); // TODO: Not sure as in some implementations it's not set in decimal mode
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
     }
 
     #[test]
-    fn test_and() {
+    fn and() {
         let memory = MemoryBus::new();
         let mut cpu = Cpu::new(memory);
 
@@ -1621,5 +1644,181 @@ mod test {
         assert_eq!(cpu.a, 0b0000_1000);
         assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn asl() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b1000_0000;
+        cpu.asl(crate::cpu::ShiftOperand::A, None);
+        assert_eq!(cpu.a, 0b0000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.a = 0b0100_0000;
+        cpu.asl(crate::cpu::ShiftOperand::A, None);
+        assert_eq!(cpu.a, 0b1000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+    }
+
+    #[test]
+    fn bcc() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Carry, false);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Carry, false);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Carry, false);
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Carry, false);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bcs() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Carry, true);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Carry, true);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Carry, true);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn beq() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Zero, true);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Zero, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Zero, true);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Zero, true);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bne() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Zero, false);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.p.write_flag(FlagPosition::Zero, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Zero, false);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Zero, false);
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Zero, false);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bmi() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Negative, true);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Negative, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Negative, true);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Negative, true);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bpl() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Negative, false);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.p.write_flag(FlagPosition::Negative, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Negative, false);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Negative, false);
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Negative, false);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bvc() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Overflow, false);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.p.write_flag(FlagPosition::Overflow, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Overflow, false);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Overflow, false);
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Overflow, false);
+        assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn bvs() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Overflow, true);
+        assert_eq!(cpu.pc, 0x00);
+
+        cpu.p.write_flag(FlagPosition::Overflow, true);
+        cpu.pc = 0x00;
+        cpu.branch(0x02, FlagPosition::Overflow, true);
+        assert_eq!(cpu.pc, 0x02);
+
+        cpu.pc = 0x16;
+        cpu.branch(-6i8, FlagPosition::Overflow, true);
+        assert_eq!(cpu.pc, 0x10);
     }
 }

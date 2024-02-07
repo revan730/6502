@@ -59,10 +59,6 @@ impl MemoryBus {
         let (_, copy_start) = self.ram_io_rom.split_at_mut(offset);
         copy_start[..data.len()].copy_from_slice(data);
 
-        // TODO: Next line is a hack used to break test programs after jump
-        // to this address as the opcode loaded there is unknown at this moment
-
-        self.zero_page[0x1] = 0x40; // RTI
         Ok(())
     }
 
