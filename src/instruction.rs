@@ -164,4 +164,13 @@ pub enum Instruction {
     Rti = 0x40,
 
     Rts = 0x60,
+
+    SbcXIndexedZeroIndirect = 0xE1,
+    SbcZeroPage = 0xE5,
+    SbcImmediate = 0xE9,
+    SbcAbsolute = 0xED,
+    SbcZeroIndirectIndexed = 0xF1,
+    SbcXIndexedZero = 0xF5,
+    SbcYIndexedAbsolute = 0xF9,
+    SbcXIndexedAbsolute = 0xFD,
 }

@@ -86,6 +86,18 @@ fn dword_from_nibbles(low_byte: u8, high_byte: u8) -> u16 {
     u16::from(high_byte) << 8 | u16::from(low_byte)
 }
 
+fn bcd_to_u8(bcd: u8) -> u8 {
+    (bcd >> 4) * 10 + (bcd & 0x0f)
+}
+
+fn u8_to_bcd(value: u8) -> u8 {
+    if value < 100 {
+        ((value / 10) << 4) | (value % 10)
+    } else {
+        0x00
+    }
+}
+
 struct FetchOperandResult(u8, Option<u16>);
 
 impl Cpu {
@@ -959,26 +971,93 @@ impl Cpu {
             Instruction::Rts => {
                 self.rts();
             }
+            // SBC
+            Instruction::SbcXIndexedZeroIndirect => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.sbc(arg0);
+                self.pc += 2;
+            }
+            Instruction::SbcZeroPage => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.sbc(arg0);
+                self.pc += 2;
+            }
+            Instruction::SbcImmediate => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Immediate);
+                self.sbc(arg0);
+                self.pc += 2;
+            }
+            Instruction::SbcAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.sbc(arg0);
+                self.pc += 3;
+            }
+            Instruction::SbcZeroIndirectIndexed => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.sbc(arg0);
+                self.pc += 2;
+            }
+            Instruction::SbcXIndexedZero => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.sbc(arg0);
+                self.pc += 2;
+            }
+            Instruction::SbcYIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.sbc(arg0);
+                self.pc += 3;
+            }
+            Instruction::SbcXIndexedAbsolute => {
+                let FetchOperandResult(arg0, _) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.sbc(arg0);
+                self.pc += 3;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
 
     fn adc(&mut self, operand: u8) {
+        let decimal = self.p.read_flag(FlagPosition::DecimalMode);
         let carry = self.p.read_flag(FlagPosition::Carry);
-        let result = self.a as u16 + operand as u16 + carry as u16;
 
-        self.p.write_flag(FlagPosition::Carry, result > 0xFF);
-        self.p.write_flag(
-            FlagPosition::Overflow,
-            (!((self.a ^ operand) & 0x80) != 0) && ((self.a ^ result as u8) & 0x80) != 0,
-        );
-        self.p.write_flag(FlagPosition::Zero, result as u8 == 0);
-        self.p.write_flag(
-            FlagPosition::Negative,
-            ((result as u8) & 0b1000_0000) >> 7 == 1,
-        );
+        let result = if !decimal {
+            let a = self.a as u16;
+            let r = a.wrapping_add(operand as u16).wrapping_add(carry as u16);
+
+            self.p.write_flag(FlagPosition::Carry, r & 0xFF00 != 0);
+            self.p.write_flag(
+                FlagPosition::Overflow,
+                (a ^ r) & (operand as u16 ^ r) & 0x80 != 0,
+            );
+
+            r
+        } else {
+            let mut r = bcd_to_u8(self.a) + bcd_to_u8(operand) + carry as u8;
+
+            let carry_new = r > 99;
+            if carry_new {
+                r -= 100;
+            }
+
+            self.p.write_flag(FlagPosition::Carry, carry);
+            self.p.write_flag(FlagPosition::Overflow, false);
+
+            u8_to_bcd(r as u8) as u16
+        };
 
         self.a = result as u8;
+
+        self.p.write_flag(FlagPosition::Zero, result & 0xFF == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
     }
 
     fn and(&mut self, operand: u8) {
@@ -1266,6 +1345,44 @@ impl Cpu {
     fn rts(&mut self) {
         self.pc = self.pop_dword() + 1;
     }
+
+    fn sbc(&mut self, operand: u8) {
+        let decimal = self.p.read_flag(FlagPosition::DecimalMode);
+        let borrow = !self.p.read_flag(FlagPosition::Carry);
+
+        let result = if !decimal {
+            let a = self.a as u16;
+            let r = a.wrapping_sub(operand as u16).wrapping_sub(borrow as u16);
+
+            self.p.write_flag(FlagPosition::Carry, r & 0xFF00 != 0);
+            self.p.write_flag(
+                FlagPosition::Overflow,
+                (a ^ r) & !(operand as u16 ^ r) & 0x80 != 0,
+            );
+
+            r
+        } else {
+            let mut r = bcd_to_u8(self.a)
+                .wrapping_sub(bcd_to_u8(operand))
+                .wrapping_sub(borrow as u8) as i8;
+
+            let carry = r < 0;
+            if carry {
+                r += 100;
+            }
+
+            self.p.write_flag(FlagPosition::Carry, carry);
+            self.p.write_flag(FlagPosition::Overflow, false);
+
+            u8_to_bcd(r as u8) as u16
+        };
+
+        self.a = result as u8;
+
+        self.p.write_flag(FlagPosition::Zero, result & 0xFF == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+    }
 }
 
 #[cfg(test)]
@@ -1300,6 +1417,8 @@ mod test {
         assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
         assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        // TODO: Decimal mode tests
     }
 
     #[test]
