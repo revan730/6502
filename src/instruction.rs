@@ -193,4 +193,11 @@ pub enum Instruction {
     StyZeroPage = 0x84,
     StyAbsolute = 0x8C,
     StyXIndexedZero = 0x94,
+
+    Tax = 0xAA,
+    Tay = 0xA8,
+    Tsx = 0xBA,
+    Txa = 0x8A,
+    Txs = 0x9A,
+    Tya = 0x98,
 }

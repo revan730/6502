@@ -189,6 +189,13 @@ lazy_static! {
         m.insert(Instruction::StyAbsolute, ArgumentType::Addr);
         m.insert(Instruction::StyXIndexedZero, ArgumentType::Byte);
 
+        m.insert(Instruction::Tax, ArgumentType::Void);
+        m.insert(Instruction::Tay, ArgumentType::Void);
+        m.insert(Instruction::Tsx, ArgumentType::Void);
+        m.insert(Instruction::Txa, ArgumentType::Void);
+        m.insert(Instruction::Txs, ArgumentType::Void);
+        m.insert(Instruction::Tya, ArgumentType::Void);
+
         m
     };
 }

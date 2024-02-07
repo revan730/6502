@@ -1114,6 +1114,31 @@ impl Cpu {
                 self.st(LdOperand::Y, address.expect("STY: expected address"));
                 self.pc += 2;
             }
+            // Transfer
+            Instruction::Tax => {
+                self.tax();
+                self.pc += 1;
+            }
+            Instruction::Tay => {
+                self.tay();
+                self.pc += 1;
+            }
+            Instruction::Tsx => {
+                self.tsx();
+                self.pc += 1;
+            }
+            Instruction::Txa => {
+                self.txa();
+                self.pc += 1;
+            }
+            Instruction::Txs => {
+                self.txs();
+                self.pc += 1;
+            }
+            Instruction::Tya => {
+                self.tya();
+                self.pc += 1;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -1496,6 +1521,45 @@ impl Cpu {
             LdOperand::X => self.address_space.write_byte(address as usize, self.x),
             LdOperand::Y => self.address_space.write_byte(address as usize, self.y),
         }
+    }
+
+    fn tax(&mut self) {
+        self.x = self.a;
+        self.p.write_flag(FlagPosition::Zero, self.x == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.x & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn tay(&mut self) {
+        self.y = self.a;
+        self.p.write_flag(FlagPosition::Zero, self.y == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.y & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn tsx(&mut self) {
+        self.x = self.s;
+        self.p.write_flag(FlagPosition::Zero, self.x == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.x & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn txa(&mut self) {
+        self.a = self.x;
+        self.p.write_flag(FlagPosition::Zero, self.a == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.a & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn txs(&mut self) {
+        self.s = self.x;
+    }
+
+    fn tya(&mut self) {
+        self.a = self.y;
+        self.p.write_flag(FlagPosition::Zero, self.a == 0);
+        self.p
+            .write_flag(FlagPosition::Negative, (self.a & 0b1000_0000) >> 7 == 1);
     }
 }
 
