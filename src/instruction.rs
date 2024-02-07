@@ -173,4 +173,8 @@ pub enum Instruction {
     SbcXIndexedZero = 0xF5,
     SbcYIndexedAbsolute = 0xF9,
     SbcXIndexedAbsolute = 0xFD,
+
+    Sec = 0x38,
+    Sed = 0xF8,
+    Sei = 0x78,
 }

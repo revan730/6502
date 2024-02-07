@@ -169,6 +169,10 @@ lazy_static! {
         m.insert(Instruction::SbcXIndexedAbsolute, ArgumentType::Addr);
         m.insert(Instruction::SbcYIndexedAbsolute, ArgumentType::Addr);
 
+        m.insert(Instruction::Sec, ArgumentType::Void);
+        m.insert(Instruction::Sed, ArgumentType::Void);
+        m.insert(Instruction::Sei, ArgumentType::Void);
+
         m
     };
 }

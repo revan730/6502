@@ -1020,6 +1020,19 @@ impl Cpu {
                 self.sbc(arg0);
                 self.pc += 3;
             }
+            // Set flags
+            Instruction::Sec => {
+                self.sec();
+                self.pc += 1;
+            }
+            Instruction::Sed => {
+                self.sed();
+                self.pc += 1;
+            }
+            Instruction::Sei => {
+                self.sei();
+                self.pc += 1;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -1382,6 +1395,18 @@ impl Cpu {
         self.p.write_flag(FlagPosition::Zero, result & 0xFF == 0);
         self.p
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+    }
+
+    fn sec(&mut self) {
+        self.p.write_flag(FlagPosition::Carry, true);
+    }
+
+    fn sed(&mut self) {
+        self.p.write_flag(FlagPosition::DecimalMode, true);
+    }
+
+    fn sei(&mut self) {
+        self.p.write_flag(FlagPosition::IrqDisable, true);
     }
 }
 
