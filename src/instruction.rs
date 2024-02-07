@@ -177,4 +177,20 @@ pub enum Instruction {
     Sec = 0x38,
     Sed = 0xF8,
     Sei = 0x78,
+
+    StaXIndexedZeroIndirect = 0x81,
+    StaZeroPage = 0x85,
+    StaAbsolute = 0x8D,
+    StaZeroIndirectIndexed = 0x91,
+    StaXIndexedZero = 0x95,
+    StaYIndexedAbsolute = 0x99,
+    StaXIndexedAbsolute = 0x9D,
+
+    StxZeroPage = 0x86,
+    StxAbsolute = 0x8E,
+    StxYIndexedZero = 0x96,
+
+    StyZeroPage = 0x84,
+    StyAbsolute = 0x8C,
+    StyXIndexedZero = 0x94,
 }

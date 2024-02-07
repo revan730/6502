@@ -1033,6 +1033,87 @@ impl Cpu {
                 self.sei();
                 self.pc += 1;
             }
+            // STA
+            Instruction::StaXIndexedZeroIndirect => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZeroIndirect);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StaZeroPage => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StaAbsolute => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 3;
+            }
+            Instruction::StaZeroIndirectIndexed => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroIndirectIndexed);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StaXIndexedZero => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StaYIndexedAbsolute => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::YIndexedAbsolute);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 3;
+            }
+            Instruction::StaXIndexedAbsolute => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedAbsolute);
+                self.st(LdOperand::A, address.expect("STA: expected address"));
+                self.pc += 3;
+            }
+            // STX
+            Instruction::StxZeroPage => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.st(LdOperand::X, address.expect("STX: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StxAbsolute => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.st(LdOperand::X, address.expect("STX: expected address"));
+                self.pc += 3;
+            }
+            Instruction::StxYIndexedZero => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::YIndexedZero);
+                self.st(LdOperand::X, address.expect("STX: expected address"));
+                self.pc += 2;
+            }
+            // STY
+            Instruction::StyZeroPage => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::ZeroPage);
+                self.st(LdOperand::Y, address.expect("STY: expected address"));
+                self.pc += 2;
+            }
+            Instruction::StyAbsolute => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::Absolute);
+                self.st(LdOperand::Y, address.expect("STY: expected address"));
+                self.pc += 3;
+            }
+            Instruction::StyXIndexedZero => {
+                let FetchOperandResult(_, address) =
+                    self.fetch_operand(instr, AddressingType::XIndexedZero);
+                self.st(LdOperand::Y, address.expect("STY: expected address"));
+                self.pc += 2;
+            }
             _ => panic!("Unknown instruction {:?}", instr.int),
         }
     }
@@ -1407,6 +1488,14 @@ impl Cpu {
 
     fn sei(&mut self) {
         self.p.write_flag(FlagPosition::IrqDisable, true);
+    }
+
+    fn st(&mut self, register: LdOperand, address: u16) {
+        match register {
+            LdOperand::A => self.address_space.write_byte(address as usize, self.a),
+            LdOperand::X => self.address_space.write_byte(address as usize, self.x),
+            LdOperand::Y => self.address_space.write_byte(address as usize, self.y),
+        }
     }
 }
 
