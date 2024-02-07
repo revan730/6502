@@ -965,18 +965,18 @@ impl Cpu {
 
     fn adc(&mut self, operand: u8) {
         let carry = self.p.read_flag(FlagPosition::Carry);
-        let result = u16::from(self.a) + u16::from(operand) + u16::from(carry);
+        let result = self.a as u16 + operand as u16 + carry as u16;
 
-        self.p.write_flag(FlagPosition::Carry, result > 255);
-        self.p.write_flag(FlagPosition::Zero, result == 0);
-
-        let overflow: bool = i8::checked_add(self.a as i8, operand as i8)
-            .and_then(|x| i8::checked_add(x, carry as i8))
-            .map_or(true, |_| false);
-
-        self.p.write_flag(FlagPosition::Overflow, overflow);
-        self.p
-            .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
+        self.p.write_flag(FlagPosition::Carry, result > 0xFF);
+        self.p.write_flag(
+            FlagPosition::Overflow,
+            (!((self.a ^ operand) & 0x80) != 0) && ((self.a ^ result as u8) & 0x80) != 0,
+        );
+        self.p.write_flag(FlagPosition::Zero, result as u8 == 0);
+        self.p.write_flag(
+            FlagPosition::Negative,
+            ((result as u8) & 0b1000_0000) >> 7 == 1,
+        );
 
         self.a = result as u8;
     }
@@ -1017,7 +1017,7 @@ impl Cpu {
     fn branch(&mut self, offset: i8, flag: FlagPosition, set: bool) {
         // PC is already on next command after branch here
 
-        if self.p.read_flag(flag) == set as u8 {
+        if self.p.read_flag(flag) == set {
             self.pc = self.pc.wrapping_add(offset as i16 as u16);
         }
     }
@@ -1265,5 +1265,64 @@ impl Cpu {
 
     fn rts(&mut self) {
         self.pc = self.pop_dword() + 1;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{cpu::Cpu, flags_register::FlagPosition, memory_bus::MemoryBus};
+
+    #[test]
+    fn test_adc() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0x01;
+        cpu.adc(0x01);
+        assert_eq!(cpu.a, 0x02);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x7F;
+        cpu.adc(0x01);
+        assert_eq!(cpu.a, 0x80);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), true);
+
+        cpu.a = 0x7F;
+        cpu.adc(0x81);
+        assert_eq!(cpu.a, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+    }
+
+    #[test]
+    fn test_and() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b1010_1010;
+        cpu.and(0b1100_1100);
+        assert_eq!(cpu.a, 0b1000_1000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.a = 0b1010_1010;
+        cpu.and(0b0000_0000);
+        assert_eq!(cpu.a, 0b0000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.a = 0b1010_1010;
+        cpu.and(0b0100_1100);
+        assert_eq!(cpu.a, 0b0000_1000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
     }
 }
