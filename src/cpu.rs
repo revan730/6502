@@ -104,13 +104,22 @@ impl Cpu {
     pub fn new(mem_bus: MemoryBus) -> Cpu {
         Cpu {
             address_space: mem_bus,
-            a: 1,
+            a: 0,
             x: 0,
             y: 0,
-            pc: 0x200, // TODO: Probably should point to reset vector
+            pc: 0,
             s: 0,
             p: FlagsRegister::default(),
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.s = 0;
+        self.p = FlagsRegister::default();
+        self.pc = self.fetch_dword(0xFFFC);
     }
 
     pub fn step(&mut self) {

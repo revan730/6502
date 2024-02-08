@@ -1,28 +1,5 @@
 use std::fmt::Debug;
 
-const ZERO_PAGE_START: usize = 0x00;
-pub const ZERO_PAGE_END: usize = 0xFF;
-pub const ZERO_PAGE_SIZE: usize = ZERO_PAGE_END - ZERO_PAGE_START + 1;
-
-const DATA_STACK_START: usize = 0x100;
-const DATA_STACK_END: usize = 0x1FF;
-const DATA_STACK_SIZE: usize = DATA_STACK_END - DATA_STACK_START + 1;
-
-const RAM_IO_ROM_START: usize = 0x200;
-const RAM_IO_ROM_END: usize = 0xFFF9;
-const RAM_IO_ROM_SIZE: usize = RAM_IO_ROM_END - RAM_IO_ROM_START + 1;
-
-const NMI_START: usize = 0xFFFA;
-const NMI_END: usize = 0xFFFB;
-
-const RESET_START: usize = 0xFFFC;
-const RESET_END: usize = 0xFFFD;
-
-const IRQ_START: usize = 0xFFFE;
-const IRQ_END: usize = 0xFFFF;
-
-const VECTOR_SIZE: usize = 2;
-
 pub const MEM_SPACE_END: usize = 0xFFFF;
 
 pub struct MemoryRegion {
@@ -33,24 +10,12 @@ pub struct MemoryRegion {
 }
 
 pub struct MemoryBus {
-    zero_page: [u8; ZERO_PAGE_SIZE],
-    data_stack: [u8; DATA_STACK_SIZE],
-    ram_io_rom: [u8; RAM_IO_ROM_SIZE],
-    nmi_vector: [u8; VECTOR_SIZE],
-    reset_vector: [u8; VECTOR_SIZE],
-    irq_vector: [u8; VECTOR_SIZE],
     region_maps: Vec<MemoryRegion>,
 }
 
 impl MemoryBus {
     pub fn new() -> MemoryBus {
         MemoryBus {
-            zero_page: [0; ZERO_PAGE_SIZE],
-            data_stack: [0; DATA_STACK_SIZE],
-            ram_io_rom: [0; RAM_IO_ROM_SIZE],
-            nmi_vector: [0; VECTOR_SIZE],
-            reset_vector: [0; VECTOR_SIZE],
-            irq_vector: [0; VECTOR_SIZE],
             region_maps: Vec::new(),
         }
     }
