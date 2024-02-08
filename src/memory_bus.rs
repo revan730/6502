@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use crate::error::MemoryBusError;
-
 const ZERO_PAGE_START: usize = 0x00;
 pub const ZERO_PAGE_END: usize = 0xFF;
 pub const ZERO_PAGE_SIZE: usize = ZERO_PAGE_END - ZERO_PAGE_START + 1;
@@ -27,6 +25,13 @@ const VECTOR_SIZE: usize = 2;
 
 pub const MEM_SPACE_END: usize = 0xFFFF;
 
+pub struct MemoryRegion {
+    pub start: usize,
+    pub end: usize,
+    pub read_handler: Box<dyn Fn(usize) -> u8>,
+    pub write_handler: Box<dyn FnMut(usize, u8)>,
+}
+
 pub struct MemoryBus {
     zero_page: [u8; ZERO_PAGE_SIZE],
     data_stack: [u8; DATA_STACK_SIZE],
@@ -34,6 +39,7 @@ pub struct MemoryBus {
     nmi_vector: [u8; VECTOR_SIZE],
     reset_vector: [u8; VECTOR_SIZE],
     irq_vector: [u8; VECTOR_SIZE],
+    region_maps: Vec<MemoryRegion>,
 }
 
 impl MemoryBus {
@@ -45,51 +51,45 @@ impl MemoryBus {
             nmi_vector: [0; VECTOR_SIZE],
             reset_vector: [0; VECTOR_SIZE],
             irq_vector: [0; VECTOR_SIZE],
+            region_maps: Vec::new(),
         }
     }
 
-    pub fn load_rom(&mut self, offset: usize, data: &[u8]) -> Result<(), MemoryBusError> {
-        if offset > RAM_IO_ROM_SIZE {
-            return Err(MemoryBusError::OffsetOutOfBounds(offset));
-        }
-        if RAM_IO_ROM_START + offset + data.len() > RAM_IO_ROM_END {
-            return Err(MemoryBusError::ROMLoadOutOfBounds);
-        }
-
-        let (_, copy_start) = self.ram_io_rom.split_at_mut(offset);
-        copy_start[..data.len()].copy_from_slice(data);
-
-        Ok(())
+    pub fn add_region(&mut self, region: MemoryRegion) {
+        self.region_maps.push(region);
     }
 
     pub fn read_byte(&self, address: usize) -> u8 {
         println!("Read from addr {address:#X}");
-        match address {
-            ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address],
-            RAM_IO_ROM_START..=RAM_IO_ROM_END => self.ram_io_rom[address - RAM_IO_ROM_START],
-            IRQ_START..=IRQ_END => self.irq_vector[address - IRQ_START],
-            _ => todo!(),
+        let mapped_region: Option<&MemoryRegion> = self
+            .region_maps
+            .iter()
+            .find(|region| region.start <= address && region.end >= address);
+
+        match mapped_region {
+            Some(region) => (region.read_handler)(address - region.start),
+            None => panic!("No region found for address {address:#X}"), // TODO: return Result to delegate error handling to the caller
         }
     }
 
     pub fn write_byte(&mut self, address: usize, value: u8) {
         println!("write {value:#X} to addr {address:#X}");
-        match address {
-            ZERO_PAGE_START..=ZERO_PAGE_END => self.zero_page[address] = value,
-            RAM_IO_ROM_START..=RAM_IO_ROM_END => {
-                self.ram_io_rom[address - RAM_IO_ROM_START] = value
-            }
-            _ => todo!(),
+        let mapped_region: Option<&mut MemoryRegion> = self
+            .region_maps
+            .iter_mut()
+            .find(|region| region.start <= address && region.end >= address);
+
+        match mapped_region {
+            Some(region) => (region.write_handler)(address - region.start, value),
+            None => panic!("No region found for address {address:#X}"),
         }
     }
 }
 
 impl Debug for MemoryBus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "Data at offset 0x200: {:#X} {:#X} {:#X} {:#X}",
-            self.ram_io_rom[0x0], self.ram_io_rom[0x1], self.ram_io_rom[0x2], self.ram_io_rom[0x3]
-        )
+        self.region_maps
+            .iter()
+            .try_for_each(|region| writeln!(f, "Region: {:#X} - {:#X}", region.start, region.end))
     }
 }
