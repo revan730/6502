@@ -1260,7 +1260,7 @@ impl Cpu {
     }
 
     fn cmp(&mut self, register: u8, operand: u8) {
-        let result = u8::saturating_sub(register, operand);
+        let result = u8::wrapping_sub(register, operand);
 
         self.p.write_flag(FlagPosition::Zero, result == 0);
         self.p
@@ -1470,7 +1470,7 @@ impl Cpu {
     }
 
     fn rts(&mut self) {
-        self.pc = self.pop_dword() + 1;
+        self.pc = self.pop_dword().wrapping_add(1);
     }
 
     fn sbc(&mut self, operand: u8) {
@@ -1572,6 +1572,7 @@ impl Cpu {
 
 #[cfg(test)]
 mod test {
+    static mut MEMORY: [u8; 0xF] = [0; 0xF];
     use crate::{cpu::Cpu, flags_register::FlagPosition, memory_bus::MemoryBus};
 
     #[test]
@@ -1673,6 +1674,30 @@ mod test {
         assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+    }
+
+    #[test]
+    fn bit() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b1010_1010;
+        cpu.bit(0b1100_1100);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.a = 0b1010_1010;
+        cpu.bit(0b0000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.a = 0b1010_1010;
+        cpu.bit(0b0100_1100);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
     }
 
     #[test]
@@ -1829,5 +1854,495 @@ mod test {
         cpu.pc = 0x16;
         cpu.branch(-6i8, FlagPosition::Overflow, true);
         assert_eq!(cpu.pc, 0x10);
+    }
+
+    #[test]
+    fn cmp() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.cmp(0x05, 0x05);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.cmp(0x05, 0x04);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.cmp(0x05, 0x06);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+    }
+
+    #[test]
+    fn dec() {
+        let mut memory = MemoryBus::new();
+
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        unsafe {
+            MEMORY[0] = 0x5;
+        }
+
+        let mut cpu = Cpu::new(memory);
+
+        cpu.inc_dec(
+            false,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0x4);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        unsafe {
+            MEMORY[0] = 0x0;
+        }
+
+        cpu.inc_dec(
+            false,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0xFF);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        unsafe {
+            MEMORY[0] = 0x1;
+        }
+
+        cpu.inc_dec(
+            false,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0x0);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+    }
+
+    #[test]
+    fn dex() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.x = 0x05;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0x04);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.x = 0x01;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+
+        cpu.x = 0x00;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0xFF);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+    }
+
+    #[test]
+    fn dey() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.y = 0x05;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0x04);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.y = 0x01;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+
+        cpu.y = 0x00;
+        cpu.inc_dec(false, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0xFF);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+    }
+
+    #[test]
+    fn eor() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b0100_1100;
+        cpu.eor(0b1100_1100);
+        assert_eq!(cpu.a, 0b1000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.a = 0b0100_1100;
+        cpu.eor(0b0100_1100);
+        assert_eq!(cpu.a, 0b0000_0000);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+    }
+
+    #[test]
+    fn inc() {
+        let mut memory = MemoryBus::new();
+
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        unsafe {
+            MEMORY[0] = 0x5;
+        }
+
+        let mut cpu = Cpu::new(memory);
+
+        cpu.inc_dec(
+            true,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0x6);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        unsafe {
+            MEMORY[0] = 0xFF;
+        }
+
+        cpu.inc_dec(
+            true,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0x0);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+
+        unsafe {
+            MEMORY[0] = 0x7F;
+        }
+
+        cpu.inc_dec(
+            true,
+            unsafe { crate::cpu::IncDecOperand::Value(MEMORY[0]) },
+            Some(0),
+        );
+        assert_eq!(unsafe { MEMORY[0] }, 0x80);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+    }
+
+    #[test]
+    fn inx() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.x = 0x05;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0x06);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.x = 0x7F;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0x80);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.x = 0xFF;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::X, None);
+        assert_eq!(cpu.x, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+    }
+
+    #[test]
+    fn iny() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.y = 0x05;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0x06);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.y = 0x7F;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0x80);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.y = 0xFF;
+        cpu.inc_dec(true, crate::cpu::IncDecOperand::Y, None);
+        assert_eq!(cpu.y, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+    }
+
+    #[test]
+    fn jmp_direct() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        unsafe {
+            MEMORY[0xA] = 0xBE;
+            MEMORY[0xB] = 0xBA;
+        }
+        let mut cpu = Cpu::new(memory);
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::JmpIndirect,
+            arg: super::Argument::Addr(0xA),
+        });
+        assert_eq!(cpu.pc, 0xBABE);
+    }
+
+    #[test]
+    fn jmp_indirect() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Jmp,
+            arg: super::Argument::Addr(0xCAFE),
+        });
+        assert_eq!(cpu.pc, 0xCAFE);
+    }
+
+    #[test]
+    fn rol() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b0100_1100;
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.rol(super::ShiftOperand::A, None);
+
+        assert_eq!(cpu.a, 0b1001_1001);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.a = 0b1100_1100;
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.rol(super::ShiftOperand::A, None);
+
+        assert_eq!(cpu.a, 0b1001_1001);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+    }
+
+    #[test]
+    fn ror() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0b0100_1100;
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.ror(super::ShiftOperand::A, None);
+
+        assert_eq!(cpu.a, 0b1010_0110);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+
+        cpu.a = 0b0100_1101;
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.ror(super::ShiftOperand::A, None);
+
+        assert_eq!(cpu.a, 0b1010_0110);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+    }
+
+    #[test]
+    fn rti() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        unsafe {
+            MEMORY[0xC] = 0xBA;
+            MEMORY[0xB] = 0xBE;
+            MEMORY[0xA] = 0x3;
+        }
+        let mut cpu = Cpu::new(memory);
+        cpu.s = 0x9;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Rti,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(Into::<u8>::into(&cpu.p), 0x3);
+        assert_eq!(cpu.pc, 0xBABE);
+    }
+
+    #[test]
+    fn rts() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        unsafe {
+            MEMORY[0xC] = 0xBA;
+            MEMORY[0xB] = 0xBE;
+        }
+        let mut cpu = Cpu::new(memory);
+        cpu.s = 0xA;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Rts,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(cpu.pc, 0xBABF);
+    }
+
+    #[test]
+    fn sec() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.p.write_flag(FlagPosition::Carry, false);
+        cpu.sec();
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        cpu.sec();
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+    }
+
+    #[test]
+    fn sed() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.p.write_flag(FlagPosition::DecimalMode, false);
+        cpu.sed();
+        assert_eq!(cpu.p.read_flag(FlagPosition::DecimalMode), true);
+        cpu.sed();
+        assert_eq!(cpu.p.read_flag(FlagPosition::DecimalMode), true);
+    }
+
+    #[test]
+    fn sei() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.p.write_flag(FlagPosition::IrqDisable, false);
+        cpu.sei();
+        assert_eq!(cpu.p.read_flag(FlagPosition::IrqDisable), true);
+        cpu.sei();
+        assert_eq!(cpu.p.read_flag(FlagPosition::IrqDisable), true);
+    }
+
+    #[test]
+    fn sta() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.a = 0x42;
+
+        cpu.x = 0x1;
+        unsafe {
+            MEMORY[0x1] = 0x7;
+        }
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaXIndexedZeroIndirect,
+            arg: super::Argument::Byte(0x0),
+        });
+        assert_eq!(unsafe { MEMORY[0x7] }, 0x42);
+
+        unsafe {
+            MEMORY[0x1] = 0x7;
+        }
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaZeroPage,
+            arg: super::Argument::Byte(0x6),
+        });
+        assert_eq!(unsafe { MEMORY[0x6] }, 0x42);
+
+        unsafe {
+            MEMORY[0x0] = 0x7;
+            MEMORY[0x1] = 0x0;
+            MEMORY[0x7] = 0x0;
+        }
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaZeroIndirectIndexed,
+            arg: super::Argument::Byte(0x0),
+        });
+        assert_eq!(unsafe { MEMORY[0x7] }, 0x42);
+
+        cpu.a = 0xBB;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaAbsolute,
+            arg: super::Argument::Addr(0x8),
+        });
+        assert_eq!(unsafe { MEMORY[0x8] }, 0xBB);
+
+        cpu.a = 0xAA;
+        cpu.x = 0x4;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaXIndexedZero,
+            arg: super::Argument::Byte(0x1),
+        });
+        assert_eq!(unsafe { MEMORY[0x5] }, 0xAA);
+
+        cpu.a = 0x40;
+        unsafe {
+            MEMORY[0x5] = 0x0;
+        }
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaXIndexedAbsolute,
+            arg: super::Argument::Addr(0x1),
+        });
+        assert_eq!(unsafe { MEMORY[0x5] }, 0x40);
+
+        cpu.a = 0x41;
+        cpu.y = 0x3;
+        unsafe {
+            MEMORY[0x5] = 0x0;
+        }
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StaYIndexedAbsolute,
+            arg: super::Argument::Addr(0x2),
+        });
+        assert_eq!(unsafe { MEMORY[0x5] }, 0x41);
     }
 }
