@@ -3,6 +3,8 @@ pub struct FlagsRegister(u8);
 pub enum FlagPosition {
     Negative = 7,
     Overflow = 6,
+    Unused = 5,
+    Break = 4,
     DecimalMode = 3,
     IrqDisable = 2,
     Zero = 1,
@@ -114,5 +116,12 @@ mod tests {
     fn flags_into_u8() {
         let flags = FlagsRegister(0b10000001);
         assert_eq!(Into::<u8>::into(&flags), 0b10000001);
+    }
+
+    #[test]
+    fn flags_from_u8() {
+        let flags = FlagsRegister::new(0b10000001);
+        assert_eq!(flags.read_flag(FlagPosition::Negative), true);
+        assert_eq!(flags.read_flag(FlagPosition::Carry), true);
     }
 }

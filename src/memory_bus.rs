@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 pub const MEM_SPACE_END: usize = 0xFFFF;
+pub const STACK_BOTTOM: usize = 0x0100;
 
 pub struct MemoryRegion {
     pub start: usize,

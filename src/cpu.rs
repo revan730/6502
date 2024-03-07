@@ -4,7 +4,7 @@ use crate::{
     error::DecodeError,
     flags_register::{FlagPosition, FlagsRegister},
     instruction::{AddressingType, Instruction},
-    memory_bus::{MemoryBus, MEM_SPACE_END},
+    memory_bus::{MemoryBus, MEM_SPACE_END, STACK_BOTTOM},
     opcode_decoders::{ArgumentType, INSTRUCTIONS_ADDRESSING},
 };
 
@@ -113,6 +113,10 @@ impl Cpu {
         }
     }
 
+    pub fn set_pc(&mut self, val: u16) {
+        self.pc = val;
+    }
+
     pub fn reset(&mut self) {
         self.a = 0;
         self.x = 0;
@@ -120,6 +124,7 @@ impl Cpu {
         self.s = 0;
         self.p = FlagsRegister::default();
         self.pc = self.fetch_dword(0xFFFC);
+        //self.pc = 0xE2B3;
     }
 
     pub fn step(&mut self) {
@@ -205,9 +210,9 @@ impl Cpu {
 
                 let low_byte = self.fetch(arg0 as u16);
                 let high_byte = self.fetch(arg0 as u16 + 1);
-                let address = dword_from_nibbles(low_byte, high_byte);
+                let address = dword_from_nibbles(low_byte, high_byte).wrapping_add(self.y as u16);
 
-                FetchOperandResult(self.fetch(self.y as u16 + address), Some(address))
+                FetchOperandResult(self.fetch(address), Some(address))
             }
             AddressingType::XIndexedZero => {
                 let arg0: u8 = TryInto::try_into(instr.arg)
@@ -229,7 +234,7 @@ impl Cpu {
                 let address: u16 = TryInto::try_into(instr.arg)
                     .expect("X indexed absolute operand fetch error: expected address");
 
-                let address_x_indexed = address + self.x as u16;
+                let address_x_indexed = address.wrapping_add(self.x as u16);
 
                 FetchOperandResult(self.fetch(address_x_indexed), Some(address_x_indexed))
             }
@@ -237,7 +242,7 @@ impl Cpu {
                 let address: u16 = TryInto::try_into(instr.arg)
                     .expect("Y indexed absolute operand fetch error: expected address");
 
-                let address_y_indexed = address + self.y as u16;
+                let address_y_indexed = address.wrapping_add(self.y as u16);
 
                 FetchOperandResult(self.fetch(address_y_indexed), Some(address_y_indexed))
             }
@@ -899,7 +904,7 @@ impl Cpu {
             }
             // PHP
             Instruction::Php => {
-                self.push(Into::<u8>::into(&self.p));
+                self.push(Into::<u8>::into(&self.p) | 0x1 << 5 | 0x1 << 4);
                 self.pc += 1;
             }
             // PLA
@@ -1239,14 +1244,14 @@ impl Cpu {
     }
 
     fn brk(&mut self) {
-        self.p.write_flag(FlagPosition::IrqDisable, true);
-        self.push_dword(self.pc);
-        self.push(Into::<u8>::into(&self.p));
+        self.push_dword(self.pc + 2);
+        self.push(Into::<u8>::into(&self.p) | 0x1 << 5 | 0x1 << 4);
 
         let irq_vec_high_byte = self.address_space.read_byte(0xFFFF);
         let irq_vec_low_byte = self.address_space.read_byte(0xFFFE);
 
         self.pc = dword_from_nibbles(irq_vec_low_byte, irq_vec_high_byte);
+        self.p.write_flag(FlagPosition::IrqDisable, true);
     }
 
     fn clear_flag(&mut self, flag: FlagPosition) {
@@ -1285,6 +1290,11 @@ impl Cpu {
         self.p
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
 
+        println!(
+            "Inc {} operand {} address {:?}",
+            inc, operand_value, operand_address
+        );
+
         match operand {
             IncDecOperand::X => self.x = result,
             IncDecOperand::Y => self.y = result,
@@ -1312,11 +1322,11 @@ impl Cpu {
         let low_byte = self.pc & 0x00FF;
 
         self.address_space
-            .write_byte(self.s as usize, high_byte as u8);
+            .write_byte(STACK_BOTTOM + self.s as usize, high_byte as u8);
         self.s = self.s.wrapping_sub(1);
 
         self.address_space
-            .write_byte(self.s as usize, low_byte as u8);
+            .write_byte(STACK_BOTTOM + self.s as usize, low_byte as u8);
         self.s = self.s.wrapping_sub(1);
 
         self.pc = address;
@@ -1373,7 +1383,8 @@ impl Cpu {
     }
 
     fn push(&mut self, value: u8) {
-        self.address_space.write_byte(self.s as usize, value);
+        self.address_space
+            .write_byte(STACK_BOTTOM + self.s as usize, value);
         self.s = self.s.wrapping_sub(1);
     }
 
@@ -1382,25 +1393,25 @@ impl Cpu {
         let low_byte = value & 0x00FF;
 
         self.address_space
-            .write_byte(self.s as usize, high_byte as u8);
+            .write_byte(STACK_BOTTOM + self.s as usize, high_byte as u8);
         self.s = self.s.wrapping_sub(1);
 
         self.address_space
-            .write_byte(self.s as usize, low_byte as u8);
+            .write_byte(STACK_BOTTOM + self.s as usize, low_byte as u8);
         self.s = self.s.wrapping_sub(1);
     }
 
     fn pop(&mut self) -> u8 {
         self.s = self.s.wrapping_add(1);
-        self.address_space.read_byte(self.s as usize)
+        self.address_space.read_byte(STACK_BOTTOM + self.s as usize)
     }
 
     fn pop_dword(&mut self) -> u16 {
         self.s = self.s.wrapping_add(1);
-        let low_byte = self.address_space.read_byte(self.s as usize);
+        let low_byte = self.address_space.read_byte(STACK_BOTTOM + self.s as usize);
 
         self.s = self.s.wrapping_add(1);
-        let high_byte = self.address_space.read_byte(self.s as usize);
+        let high_byte = self.address_space.read_byte(STACK_BOTTOM + self.s as usize);
 
         dword_from_nibbles(low_byte, high_byte)
     }
@@ -1414,6 +1425,8 @@ impl Cpu {
 
     fn plp(&mut self) {
         self.p = FlagsRegister::new(self.pop());
+        self.p.write_flag(FlagPosition::Break, false);
+        self.p.write_flag(FlagPosition::Unused, true);
     }
 
     fn rol(&mut self, operand: ShiftOperand, operand_address: Option<u16>) {
@@ -1476,15 +1489,16 @@ impl Cpu {
     fn sbc(&mut self, operand: u8) {
         let decimal = self.p.read_flag(FlagPosition::DecimalMode);
         let borrow = !self.p.read_flag(FlagPosition::Carry);
+        let mut carry_out = false;
 
         let result = if !decimal {
             let a = self.a as u16;
             let r = a.wrapping_sub(operand as u16).wrapping_sub(borrow as u16);
 
-            self.p.write_flag(FlagPosition::Carry, r & 0xFF00 != 0);
+            carry_out = r & 0xFF00 != 0;
             self.p.write_flag(
                 FlagPosition::Overflow,
-                (a ^ r) & !(operand as u16 ^ r) & 0x80 != 0,
+                (a ^ r) & (!operand as u16 ^ r) & 0x80 != 0,
             );
 
             r
@@ -1498,13 +1512,14 @@ impl Cpu {
                 r += 100;
             }
 
-            self.p.write_flag(FlagPosition::Carry, carry);
+            carry_out = carry;
 
             u8_to_bcd(r as u8) as u16
         };
 
         self.a = result as u8;
 
+        self.p.write_flag(FlagPosition::Carry, !carry_out);
         self.p.write_flag(FlagPosition::Zero, result & 0xFF == 0);
         self.p
             .write_flag(FlagPosition::Negative, (result & 0b1000_0000) >> 7 == 1);
@@ -1572,8 +1587,12 @@ impl Cpu {
 
 #[cfg(test)]
 mod test {
-    static mut MEMORY: [u8; 0xF] = [0; 0xF];
-    use crate::{cpu::Cpu, flags_register::FlagPosition, memory_bus::MemoryBus};
+    static mut MEMORY: [u8; 0x10000] = [0; 0x10000];
+    use crate::{
+        cpu::Cpu,
+        flags_register::{FlagPosition, FlagsRegister},
+        memory_bus::MemoryBus,
+    };
 
     #[test]
     fn adc() {
@@ -1698,6 +1717,37 @@ mod test {
         assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
         assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), true);
         assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn brk() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xFFFF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+        let mut cpu = Cpu::new(memory);
+
+        cpu.s = 0xFF;
+
+        unsafe {
+            MEMORY[0xFFFE] = 0x25;
+            MEMORY[0xFFFF] = 0x45;
+        }
+
+        cpu.brk();
+        assert_eq!(cpu.pc, 0x4525);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Break), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Unused), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::IrqDisable), true);
+
+        unsafe {
+            assert_eq!(MEMORY[0x1FF], 0x0);
+            assert_eq!(MEMORY[0x1FE], 0x2);
+            assert_eq!(MEMORY[0x1FD], 1 << 5 | 1 << 4);
+        }
     }
 
     #[test]
@@ -2133,6 +2183,123 @@ mod test {
     }
 
     #[test]
+    fn pha() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xFFF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.a = 0x42;
+        cpu.s = 0xFF;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Pha,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(unsafe { MEMORY[0x1FF] }, 0x42);
+    }
+
+    #[test]
+    fn php() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xFFF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.s = 0xFF;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Php,
+            arg: super::Argument::Void,
+        });
+        let correct_value = 0x01 | 0x1 << 5 | 0x1 << 4; // BRK and reserved bits should be set
+        assert_eq!(unsafe { MEMORY[0x1FF] }, correct_value);
+    }
+
+    #[test]
+    fn pla() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xFFF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.s = 0xFE;
+        unsafe {
+            MEMORY[0x1FF] = 0x42;
+        }
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Pla,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(cpu.a, 0x42);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.s = 0xFE;
+        unsafe {
+            MEMORY[0x1FF] = 0x0;
+        }
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Pla,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(cpu.a, 0x0);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.s = 0xFE;
+        unsafe {
+            MEMORY[0x1FF] = 0b1000_0011;
+        }
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Pla,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(cpu.a, 0b1000_0011);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+    }
+
+    #[test]
+    fn plp() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xFFF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.s = 0xFE;
+        unsafe {
+            MEMORY[0x1FF] = 0x42 | 0x1 << 5 | 0x1 << 4;
+        }
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::Plp,
+            arg: super::Argument::Void,
+        });
+        assert_eq!(Into::<u8>::into(&cpu.p), 0x42 | 0x1 << 5);
+    }
+
+    #[test]
     fn rol() {
         let memory = MemoryBus::new();
         let mut cpu = Cpu::new(memory);
@@ -2185,15 +2352,15 @@ mod test {
         let mut memory = MemoryBus::new();
         memory.add_region(crate::memory_bus::MemoryRegion {
             start: 0,
-            end: 0xF,
+            end: 0xFFF,
             read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
             write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
         });
 
         unsafe {
-            MEMORY[0xC] = 0xBA;
-            MEMORY[0xB] = 0xBE;
-            MEMORY[0xA] = 0x3;
+            MEMORY[0x10C] = 0xBA;
+            MEMORY[0x10B] = 0xBE;
+            MEMORY[0x10A] = 0x3;
         }
         let mut cpu = Cpu::new(memory);
         cpu.s = 0x9;
@@ -2202,7 +2369,7 @@ mod test {
             int: crate::instruction::Instruction::Rti,
             arg: super::Argument::Void,
         });
-        assert_eq!(Into::<u8>::into(&cpu.p), 0x3);
+        assert_eq!(Into::<u8>::into(&cpu.p), 0x3 | 0x1 << 5);
         assert_eq!(cpu.pc, 0xBABE);
     }
 
@@ -2211,14 +2378,14 @@ mod test {
         let mut memory = MemoryBus::new();
         memory.add_region(crate::memory_bus::MemoryRegion {
             start: 0,
-            end: 0xF,
+            end: 0xFFF,
             read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
             write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
         });
 
         unsafe {
-            MEMORY[0xC] = 0xBA;
-            MEMORY[0xB] = 0xBE;
+            MEMORY[0x10C] = 0xBA;
+            MEMORY[0x10B] = 0xBE;
         }
         let mut cpu = Cpu::new(memory);
         cpu.s = 0xA;
@@ -2228,6 +2395,76 @@ mod test {
             arg: super::Argument::Void,
         });
         assert_eq!(cpu.pc, 0xBABF);
+    }
+
+    #[test]
+    fn sbc() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.p.write_flag(FlagPosition::Carry, true); // No borrow
+        cpu.a = 0x01;
+        cpu.sbc(0x01);
+        assert_eq!(cpu.a, 0x0);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0xFF;
+        cpu.sbc(0x01);
+        assert_eq!(cpu.a, 0xFE);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x80;
+        cpu.sbc(0x1);
+
+        assert_eq!(cpu.a, 0x7F);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), true);
+
+        cpu.a = 0x0;
+        cpu.sbc(0x1);
+
+        assert_eq!(cpu.a, 0xFF);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.p.write_flag(FlagPosition::Carry, true);
+        cpu.p.write_flag(FlagPosition::DecimalMode, true);
+
+        cpu.a = 0x01;
+        cpu.sbc(0x01);
+
+        assert_eq!(cpu.a, 0x00);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x80;
+        cpu.sbc(0x1);
+        assert_eq!(cpu.a, 0x79);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
+
+        cpu.a = 0x10;
+        cpu.sbc(0x20);
+
+        assert_eq!(cpu.a, 0x90);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Carry), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Overflow), false);
     }
 
     #[test]
@@ -2345,4 +2582,256 @@ mod test {
         });
         assert_eq!(unsafe { MEMORY[0x5] }, 0x41);
     }
+
+    #[test]
+    fn stx() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.x = 0x42;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StxZeroPage,
+            arg: super::Argument::Byte(0x6),
+        });
+        assert_eq!(unsafe { MEMORY[0x6] }, 0x42);
+
+        cpu.x = 0xBB;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StxAbsolute,
+            arg: super::Argument::Addr(0x8),
+        });
+        assert_eq!(unsafe { MEMORY[0x8] }, 0xBB);
+
+        cpu.x = 0xBA;
+        cpu.y = 0x5;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StxYIndexedZero,
+            arg: super::Argument::Byte(0x4),
+        });
+        assert_eq!(unsafe { MEMORY[0x9] }, 0xBA);
+    }
+
+    #[test]
+    fn sty() {
+        let mut memory = MemoryBus::new();
+        memory.add_region(crate::memory_bus::MemoryRegion {
+            start: 0,
+            end: 0xF,
+            read_handler: Box::new(|addr: usize| unsafe { MEMORY[addr] }),
+            write_handler: Box::new(|addr: usize, value: u8| unsafe { MEMORY[addr] = value }),
+        });
+
+        let mut cpu = Cpu::new(memory);
+        cpu.y = 0x42;
+
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StyZeroPage,
+            arg: super::Argument::Byte(0x6),
+        });
+        assert_eq!(unsafe { MEMORY[0x6] }, 0x42);
+
+        cpu.y = 0xBB;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StyAbsolute,
+            arg: super::Argument::Addr(0x8),
+        });
+        assert_eq!(unsafe { MEMORY[0x8] }, 0xBB);
+
+        cpu.y = 0xBA;
+        cpu.x = 0x5;
+        cpu.execute(super::DecodedInstruction {
+            int: crate::instruction::Instruction::StyXIndexedZero,
+            arg: super::Argument::Byte(0x4),
+        });
+        assert_eq!(unsafe { MEMORY[0x9] }, 0xBA);
+    }
+
+    #[test]
+    fn tax() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0xBA;
+
+        cpu.tax();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.a = 0x0A;
+
+        cpu.tax();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.a = 0x0;
+
+        cpu.tax();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn tay() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.a = 0xBA;
+
+        cpu.tay();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.a = 0x0A;
+
+        cpu.tay();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.a = 0x0;
+
+        cpu.tay();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn tsx() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.s = 0xBA;
+
+        cpu.tsx();
+
+        assert_eq!(cpu.s, cpu.x);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.s = 0x0A;
+
+        cpu.tsx();
+
+        assert_eq!(cpu.s, cpu.x);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.s = 0x0;
+
+        cpu.tsx();
+
+        assert_eq!(cpu.s, cpu.x);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn txa() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.x = 0xBA;
+
+        cpu.txa();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.x = 0x0A;
+
+        cpu.txa();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.x = 0x0;
+
+        cpu.txa();
+
+        assert_eq!(cpu.x, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn txs() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.x = 0xBA;
+
+        cpu.txs();
+
+        assert_eq!(cpu.x, cpu.s);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.x = 0x0A;
+
+        cpu.txs();
+
+        assert_eq!(cpu.x, cpu.s);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.x = 0x0;
+
+        cpu.txs();
+
+        assert_eq!(cpu.x, cpu.s);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    #[test]
+    fn tya() {
+        let memory = MemoryBus::new();
+        let mut cpu = Cpu::new(memory);
+
+        cpu.y = 0xBA;
+
+        cpu.tya();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), true);
+
+        cpu.y = 0x0A;
+
+        cpu.tya();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), false);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+
+        cpu.y = 0x0;
+
+        cpu.tya();
+
+        assert_eq!(cpu.y, cpu.a);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Zero), true);
+        assert_eq!(cpu.p.read_flag(FlagPosition::Negative), false);
+    }
+
+    // TODO: Test for JSR (to check correct stack usage)
 }
